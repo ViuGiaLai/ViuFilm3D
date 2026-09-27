@@ -48,7 +48,8 @@ export const formatMovieBadge = (movie: Movie): string => {
     }
   }
 
-  if (movie.status === "Hoàn thành") {
+  // 2. Chỉ hiển thị "Trọn bộ" khi số tập đã phát hành đạt đủ tổng số tập (ví dụ 40/40)
+  if (movie.episode >= movie.totalEpisodes) {
     return `Trọn bộ ${movie.totalEpisodes}/${movie.totalEpisodes}`;
   }
 
