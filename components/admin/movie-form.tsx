@@ -840,6 +840,7 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
                 onChange={(audioKey) =>
                   handleEpisodeAudioChange(selectedEpTab, audioKey)
                 }
+                infoBadge="Track lồng tiếng phải cùng thời lượng và mốc thời gian với video tập."
               />
             </div>
           </div>
@@ -902,6 +903,7 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
             label="Audio lồng tiếng thay thế (Tùy chọn)"
             value={form.audio}
             onChange={(audio) => setForm((prev) => ({ ...prev, audio }))}
+            infoBadge="Bỏ trống để dùng tiếng gốc trong video. Audio riêng phải cùng thời lượng với video."
           />
         </div>
 

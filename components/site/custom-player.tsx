@@ -278,6 +278,35 @@ export default function CustomPlayer({
     }
   };
 
+  const validateExternalAudioDuration = () => {
+    const video = videoRef.current;
+    const external = audioRef.current;
+    if (
+      !video ||
+      !external ||
+      !Number.isFinite(video.duration) ||
+      !Number.isFinite(external.duration) ||
+      video.duration <= 0 ||
+      external.duration <= 0
+    ) {
+      return;
+    }
+
+    if (Math.abs(video.duration - external.duration) > 3) {
+      external.pause();
+      setExternalAudioError(true);
+      setAudioTrack("original");
+      video.muted = isMuted;
+    }
+  };
+
+  useEffect(() => {
+    setAudioTrack("original");
+    setExternalAudioError(false);
+    audioRef.current?.pause();
+    if (videoRef.current) videoRef.current.muted = isMuted;
+  }, [src, audio]);
+
   // Toggle Play / Pause
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -465,7 +494,15 @@ export default function CustomPlayer({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPlaying, isMuted, isFullscreen, duration]);
+  }, [
+    isPlaying,
+    isMuted,
+    isFullscreen,
+    duration,
+    useExternalAudio,
+    volume,
+    resumePrompt.show,
+  ]);
 
   // Xử lý Scrubbing / Seekbar bằng chuột hoặc cảm ứng ngón tay
   const seekToPosition = (clientX: number) => {
@@ -615,6 +652,7 @@ export default function CustomPlayer({
         onLoadedMetadata={(e) => {
           const v = e.currentTarget;
           setDuration(v.duration);
+          validateExternalAudioDuration();
         }}
         onEnded={() => {
           audioRef.current?.pause();
@@ -640,6 +678,7 @@ export default function CustomPlayer({
           preload="metadata"
           className="custom-player-external-audio"
           aria-hidden="true"
+          onLoadedMetadata={validateExternalAudioDuration}
           onError={() => {
             setExternalAudioError(true);
             setAudioTrack("original");
