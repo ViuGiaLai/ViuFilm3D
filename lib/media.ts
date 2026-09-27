@@ -14,6 +14,7 @@ export type MediaUploadRequest = {
   filename: string;
   contentType: string;
   size: number;
+  replaceKey?: string;
 };
 
 export type PresignedUpload = {

@@ -101,6 +101,7 @@ export default function MediaUploader({
         category,
         file,
         effectiveSlug,
+        value,
       );
       onChange(result.key);
       setReadUrl(result.readUrl);

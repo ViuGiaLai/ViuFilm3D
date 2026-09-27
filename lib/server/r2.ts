@@ -66,6 +66,31 @@ export const assertMediaKey = (value: unknown) => {
   return key;
 };
 
+const assertReplacementKey = (
+  value: unknown,
+  movieId: number,
+  category: MediaCategory,
+) => {
+  const key = assertMediaKey(value);
+  const parts = key.split("/");
+  const folder = parts[1] ?? "";
+  const folderBelongsToMovie =
+    folder === String(movieId) || folder.endsWith(`-${movieId}`);
+
+  if (
+    parts.length < 4 ||
+    !folderBelongsToMovie ||
+    parts[2] !== category ||
+    !parts.slice(3).join("/")
+  ) {
+    throw new ValidationError(
+      "Tệp R2 cần thay thế không thuộc đúng phim hoặc loại media.",
+    );
+  }
+
+  return key;
+};
+
 export function getMovieMediaFolder(
   movieId: number,
   slug?: string,
@@ -121,6 +146,14 @@ export function parseUploadRequest(value: unknown): MediaUploadRequest {
 
   const slug =
     typeof request.slug === "string" ? request.slug.trim() : undefined;
+  const replaceKey =
+    request.replaceKey === undefined
+      ? undefined
+      : assertReplacementKey(
+          request.replaceKey,
+          Number(request.movieId),
+          category,
+        );
 
   return {
     movieId: Number(request.movieId),
@@ -129,6 +162,7 @@ export function parseUploadRequest(value: unknown): MediaUploadRequest {
     filename: request.filename.trim(),
     contentType,
     size: Number(request.size),
+    replaceKey,
   };
 }
 
@@ -157,10 +191,13 @@ export const r2Media = {
     fileBuffer: Buffer | Uint8Array,
     contentType: string,
     slug?: string,
+    replaceKey?: string,
   ): Promise<MediaObject> {
     const { bucket } = getR2Env();
     const folder = getMovieMediaFolder(movieId, slug, filename);
-    const key = `movies/${folder}/${category}/${randomUUID()}-${safeFilename(filename)}`;
+    const key = replaceKey
+      ? assertReplacementKey(replaceKey, movieId, category)
+      : `movies/${folder}/${category}/${randomUUID()}-${safeFilename(filename)}`;
     try {
       const result = await client().send(
         new PutObjectCommand({
@@ -190,7 +227,9 @@ export const r2Media = {
       request.slug,
       request.filename,
     );
-    const key = `movies/${folder}/${request.category}/${randomUUID()}-${safeFilename(request.filename)}`;
+    const key =
+      request.replaceKey ??
+      `movies/${folder}/${request.category}/${randomUUID()}-${safeFilename(request.filename)}`;
     try {
       const uploadUrl = await getSignedUrl(
         client(),

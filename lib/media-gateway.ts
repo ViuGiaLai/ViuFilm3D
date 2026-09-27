@@ -29,6 +29,7 @@ export const mediaGateway = {
     category: MediaCategory,
     file: File,
     slug?: string,
+    currentValue?: string,
   ): Promise<CompletedUpload> {
     const cleanSlug = (slug || "")
       .trim()
@@ -36,11 +37,24 @@ export const mediaGateway = {
       .replace(/[^a-z0-9-]/g, "")
       .replace(/^-+|-+$/g, "");
     const folder = cleanSlug ? `${cleanSlug}-${movieId}` : `${movieId}`;
+    const currentParts = currentValue?.split("/") ?? [];
+    const currentFolder = currentParts[1] ?? "";
+    const belongsToMovie =
+      currentFolder === String(movieId) ||
+      currentFolder.endsWith(`-${movieId}`);
+    const replaceKey =
+      currentValue &&
+      !isDirectUrl(currentValue) &&
+      currentParts[0] === "movies" &&
+      currentParts[2] === category &&
+      belongsToMovie
+        ? currentValue
+        : undefined;
 
     if (apiMode === "mock") {
       const blobUrl = URL.createObjectURL(file);
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const mockKey = `movies/${folder}/${category}/${safeName}`;
+      const mockKey = replaceKey ?? `movies/${folder}/${category}/${safeName}`;
       resolvedCache.set(mockKey, {
         url: blobUrl,
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
@@ -62,6 +76,9 @@ export const mediaGateway = {
       formData.append("category", category);
       if (cleanSlug) {
         formData.append("slug", cleanSlug);
+      }
+      if (replaceKey) {
+        formData.append("replaceKey", replaceKey);
       }
 
       const completed = await requestApi<CompletedUpload>("/media/upload", {
@@ -101,6 +118,7 @@ export const mediaGateway = {
           filename: file.name,
           contentType: file.type || "application/octet-stream",
           size: file.size,
+          replaceKey,
         }),
       });
 

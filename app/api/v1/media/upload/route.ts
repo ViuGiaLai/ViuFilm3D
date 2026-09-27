@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     const movieIdRaw = formData.get("movieId");
     const categoryRaw = formData.get("category");
     const slugRaw = formData.get("slug");
+    const replaceKeyRaw = formData.get("replaceKey");
 
     if (!file || !(file instanceof File)) {
       return apiProblem("Không tìm thấy tệp tải lên.", 400);
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
     }
 
     const slug = typeof slugRaw === "string" ? slugRaw.trim() : undefined;
+    const replaceKey =
+      typeof replaceKeyRaw === "string" && replaceKeyRaw.trim()
+        ? replaceKeyRaw.trim()
+        : undefined;
 
     const category = categoryRaw as MediaCategory;
     if (!category || !mediaCategories.includes(category)) {
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
       buffer,
       inferContentType(file.name, file.type),
       slug,
+      replaceKey,
     );
 
     return apiData(completed);

@@ -40,13 +40,15 @@ export default function MovieDetail({
       >
         <div className="detail-bg" />
         <div className="detail-inner">
-          <MovieArt movie={movie} />
-          <div>
+          <div className="detail-poster-wrap">
+            <MovieArt movie={movie} />
+          </div>
+          <div className="detail-header-info">
             <p className="mini-label">
               {movie.status} · {movie.quality}
             </p>
             <h1>{movie.title}</h1>
-            <h2>{movie.originalTitle}</h2>
+            {movie.originalTitle && <h2>{movie.originalTitle}</h2>}
             <div className="detail-meta">
               <span>
                 <Star fill="currentColor" /> {movie.rating}
@@ -62,12 +64,13 @@ export default function MovieDetail({
                 <Eye /> {compact(movie.views)}
               </span>
             </div>
-            <p className="detail-desc">{movie.description}</p>
             <div className="tag-row">
               {movie.genres.map((item: string) => (
                 <b key={item}>{item}</b>
               ))}
             </div>
+          </div>
+          <div className="detail-actions-desc">
             <div className="detail-buttons">
               {movie.status === "Sắp chiếu" ? (
                 <>
@@ -128,6 +131,9 @@ export default function MovieDetail({
                 {favorite ? "Đã yêu thích" : "Yêu thích"}
               </button>
             </div>
+            {movie.description && (
+              <p className="detail-desc">{movie.description}</p>
+            )}
           </div>
         </div>
       </section>
