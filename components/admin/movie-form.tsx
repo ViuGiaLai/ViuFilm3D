@@ -298,7 +298,7 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
 
     const finalEpisodes = isSingle
       ? undefined
-        : episodes.map((ep) => ({
+      : episodes.map((ep) => ({
           episode: ep.episode,
           video: ep.video.trim(),
           audio: ep.audio?.trim() || undefined,

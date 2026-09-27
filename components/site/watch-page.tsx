@@ -99,15 +99,13 @@ export default function WatchPage({
     ? trailerVideo
     : isSingle
       ? movie.video
-      : currentEpisodeItem?.video ||
-        (episode === 1 ? movie.video : "");
+      : currentEpisodeItem?.video || (episode === 1 ? movie.video : "");
 
   const currentEpisodeAudio = showTrailer
     ? undefined
     : isSingle
       ? movie.audio
-      : currentEpisodeItem?.audio ||
-        (episode === 1 ? movie.audio : undefined);
+      : currentEpisodeItem?.audio || (episode === 1 ? movie.audio : undefined);
 
   const [media, setMedia] = useState({
     video: currentEpisodeVideo,
@@ -155,7 +153,14 @@ export default function WatchPage({
     return () => {
       active = false;
     };
-  }, [movie, episode, currentEpisodeVideo, currentEpisodeAudio, isSingle, showTrailer]);
+  }, [
+    movie,
+    episode,
+    currentEpisodeVideo,
+    currentEpisodeAudio,
+    isSingle,
+    showTrailer,
+  ]);
 
   const selectEpisode = (ep: number) => {
     setEpisode(ep);
@@ -415,7 +420,6 @@ export default function WatchPage({
               )}
             </div>
           </div>
-
         </section>
 
         {/* CỘT 3 (PHẢI): SIDEBAR THÔNG TIN PHIM THẬT */}

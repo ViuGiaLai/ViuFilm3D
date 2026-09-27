@@ -191,11 +191,7 @@ export default function DashboardApp() {
         : `/xem/${identifier}?tap=${targetEpisode}`,
     );
   };
-  const recordView = (
-    movie: Movie,
-    episode: number,
-    playbackKey: string,
-  ) => {
+  const recordView = (movie: Movie, episode: number, playbackKey: string) => {
     if (playbackKey !== "trailer") {
       const next = [
         {

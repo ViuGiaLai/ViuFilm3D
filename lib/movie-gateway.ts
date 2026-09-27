@@ -46,10 +46,7 @@ export const movieGateway = {
     return [...movies].sort((a, b) => b.id - a.id);
   },
 
-  async recordView(
-    movieId: number,
-    playbackKey: string,
-  ): Promise<ViewReceipt> {
+  async recordView(movieId: number, playbackKey: string): Promise<ViewReceipt> {
     if (apiMode === "mock") {
       const movies = readMockMovies();
       const movie = movies.find((item) => item.id === movieId);
@@ -63,9 +60,7 @@ export const movieGateway = {
 
       const views = movie.views + 1;
       writeMockMovies(
-        movies.map((item) =>
-          item.id === movieId ? { ...item, views } : item,
-        ),
+        movies.map((item) => (item.id === movieId ? { ...item, views } : item)),
       );
       localStorage.setItem(key, String(Date.now()));
       return { views, counted: true };
