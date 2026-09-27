@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   LogOut,
@@ -25,6 +26,7 @@ type SiteHeaderProps = HeaderProps & {
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
   mobile: () => void;
+  mobileOpen?: boolean;
   format?: MovieFormat;
   setFormat?: Dispatch<SetStateAction<MovieFormat>>;
   statusFilter?: MovieStatusFilter;
@@ -43,6 +45,7 @@ export default function SiteHeader({
   setQuery,
   go,
   mobile,
+  mobileOpen = false,
   logout,
   theme,
   toggleTheme,
@@ -86,8 +89,15 @@ export default function SiteHeader({
   return (
     <header className="ha-header">
       <div className="ha-container ha-header-inner">
-        <button className="mobile-menu" onClick={mobile} aria-label="Mở menu">
-          <Menu size={20} />
+        <button
+          type="button"
+          className="mobile-menu"
+          onClick={mobile}
+          aria-label={mobileOpen ? "Đóng menu" : "Mở menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-navigation"
+        >
+          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <button
           className="ha-logo-btn"
@@ -312,11 +322,19 @@ export function MobileNav({
   const [mobileGenresOpen, setMobileGenresOpen] = useState(false);
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
     };
-  }, []);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [close]);
 
   const resetFilters = () => {
     setFormat?.("all");
@@ -326,11 +344,27 @@ export function MobileNav({
     setSort?.("new");
   };
 
-  return (
-    <div className="mobile-layer">
-      <button className="mobile-backdrop" onClick={close} />
+  return createPortal(
+    <div
+      id="mobile-navigation"
+      className="mobile-layer"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu điều hướng"
+    >
+      <button
+        type="button"
+        className="mobile-backdrop"
+        onClick={close}
+        aria-label="Đóng menu"
+      />
       <aside>
-        <button className="mobile-close" onClick={close}>
+        <button
+          type="button"
+          className="mobile-close"
+          onClick={close}
+          aria-label="Đóng menu"
+        >
           <X />
         </button>
         <Logo />
@@ -452,12 +486,20 @@ export function MobileNav({
             >
               Tài khoản
             </button>
-            <button onClick={logout}>Đăng xuất</button>
+            <button
+              onClick={() => {
+                logout();
+                close();
+              }}
+            >
+              Đăng xuất
+            </button>
           </>
         ) : (
           <button onClick={() => go("/dang-nhap")}>Đăng nhập</button>
         )}
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

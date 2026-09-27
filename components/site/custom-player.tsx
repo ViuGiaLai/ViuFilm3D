@@ -27,6 +27,7 @@ type CustomPlayerProps = {
   src: string;
   poster?: string;
   subtitle?: string;
+  audio?: string;
   title: string;
   episodeLabel: string;
   quality?: string;
@@ -131,6 +132,7 @@ export default function CustomPlayer({
   src,
   poster,
   subtitle,
+  audio,
   quality = "Full HD",
   movieId,
   episodeNumber,
@@ -140,6 +142,7 @@ export default function CustomPlayer({
 }: CustomPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const progressTrackRef = useRef<HTMLDivElement>(null);
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -151,6 +154,10 @@ export default function CustomPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [audioTrack, setAudioTrack] = useState<"original" | "external">(
+    "original",
+  );
+  const [externalAudioError, setExternalAudioError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -216,6 +223,61 @@ export default function CustomPlayer({
     key: number;
   }>({ type: null, key: 0 });
 
+  const useExternalAudio =
+    audioTrack === "external" && Boolean(audio) && !externalAudioError;
+
+  const syncExternalAudio = (force = false) => {
+    const video = videoRef.current;
+    const external = audioRef.current;
+    if (!video || !external || !useExternalAudio) return;
+
+    if (force || Math.abs(external.currentTime - video.currentTime) > 0.35) {
+      external.currentTime = video.currentTime;
+    }
+    external.playbackRate = video.playbackRate;
+    external.volume = volume;
+    external.muted = isMuted;
+  };
+
+  const playExternalAudio = () => {
+    const external = audioRef.current;
+    if (!external || !useExternalAudio) return;
+    syncExternalAudio(true);
+    void external.play().catch(() => {
+      setExternalAudioError(true);
+      setAudioTrack("original");
+      if (videoRef.current) videoRef.current.muted = isMuted;
+    });
+  };
+
+  const selectAudioTrack = (track: "original" | "external") => {
+    const video = videoRef.current;
+    const external = audioRef.current;
+    if (!video) return;
+
+    if (track === "external" && audio && !externalAudioError) {
+      setAudioTrack("external");
+      video.muted = true;
+      if (external) {
+        external.currentTime = video.currentTime;
+        external.playbackRate = video.playbackRate;
+        external.volume = volume;
+        external.muted = isMuted;
+        if (!video.paused) {
+          void external.play().catch(() => {
+            setExternalAudioError(true);
+            setAudioTrack("original");
+            video.muted = isMuted;
+          });
+        }
+      }
+    } else {
+      setAudioTrack("original");
+      external?.pause();
+      video.muted = isMuted;
+    }
+  };
+
   // Toggle Play / Pause
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -225,10 +287,12 @@ export default function CustomPlayer({
     const isPaused = videoRef.current.paused;
     if (isPaused) {
       void videoRef.current.play();
+      playExternalAudio();
       setIsPlaying(true);
       setClickFeedback({ type: "play", key: Date.now() });
     } else {
       videoRef.current.pause();
+      audioRef.current?.pause();
       setIsPlaying(false);
       setShowControls(true);
       setClickFeedback({ type: "pause", key: Date.now() });
@@ -253,16 +317,20 @@ export default function CustomPlayer({
   const handleResumeContinue = () => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = resumePrompt.seconds;
+    if (audioRef.current) audioRef.current.currentTime = resumePrompt.seconds;
     setResumePrompt({ show: false, seconds: 0 });
     void videoRef.current.play();
+    playExternalAudio();
   };
 
   // Nút 2 trong Modal: Xem lại từ đầu
   const handleResumeRestart = () => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = 0;
+    if (audioRef.current) audioRef.current.currentTime = 0;
     setResumePrompt({ show: false, seconds: 0 });
     void videoRef.current.play();
+    playExternalAudio();
   };
 
   // Tua 10 giây trước / sau (Hình 3)
@@ -272,6 +340,7 @@ export default function CustomPlayer({
       0,
       videoRef.current.currentTime - 10,
     );
+    syncExternalAudio(true);
   };
 
   const handleForward10 = () => {
@@ -280,22 +349,26 @@ export default function CustomPlayer({
       videoRef.current.duration || duration,
       videoRef.current.currentTime + 10,
     );
+    syncExternalAudio(true);
   };
 
   // Âm lượng & Mute
   const toggleMute = () => {
     if (!videoRef.current) return;
     const nextMuted = !isMuted;
-    videoRef.current.muted = nextMuted;
+    videoRef.current.muted = useExternalAudio ? true : nextMuted;
+    if (audioRef.current) audioRef.current.muted = nextMuted;
     setIsMuted(nextMuted);
   };
 
   const handleVolumeChange = (newVol: number) => {
     if (!videoRef.current) return;
     videoRef.current.volume = newVol;
+    if (audioRef.current) audioRef.current.volume = newVol;
     setVolume(newVol);
     if (newVol > 0 && isMuted) {
-      videoRef.current.muted = false;
+      videoRef.current.muted = useExternalAudio;
+      if (audioRef.current) audioRef.current.muted = false;
       setIsMuted(false);
     }
   };
@@ -304,6 +377,7 @@ export default function CustomPlayer({
   const handleSpeedChange = (speed: number) => {
     if (!videoRef.current) return;
     videoRef.current.playbackRate = speed;
+    if (audioRef.current) audioRef.current.playbackRate = speed;
     setPlaybackSpeed(speed);
     setShowSettings(false);
   };
@@ -400,6 +474,9 @@ export default function CustomPlayer({
     const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const targetTime = pos * (duration || videoRef.current.duration || 0);
     videoRef.current.currentTime = targetTime;
+    if (audioRef.current && useExternalAudio) {
+      audioRef.current.currentTime = targetTime;
+    }
     setCurrentTime(targetTime);
   };
 
@@ -513,15 +590,21 @@ export default function CustomPlayer({
         }}
         onPlay={() => {
           setIsPlaying(true);
+          playExternalAudio();
           onPlay?.();
         }}
         onPause={() => {
+          audioRef.current?.pause();
           setIsPlaying(false);
           setShowControls(true);
         }}
+        onWaiting={() => audioRef.current?.pause()}
+        onPlaying={playExternalAudio}
+        onSeeking={() => syncExternalAudio(true)}
         onTimeUpdate={(e) => {
           const v = e.currentTarget;
           setCurrentTime(v.currentTime);
+          syncExternalAudio();
           onTimeUpdate?.(v.currentTime, v.duration || duration);
           saveProgress(v.currentTime, v.duration || duration);
 
@@ -534,6 +617,7 @@ export default function CustomPlayer({
           setDuration(v.duration);
         }}
         onEnded={() => {
+          audioRef.current?.pause();
           setIsPlaying(false);
           setShowControls(true);
           onEnded?.();
@@ -549,6 +633,20 @@ export default function CustomPlayer({
           />
         )}
       </video>
+      {audio && (
+        <audio
+          ref={audioRef}
+          src={audio}
+          preload="metadata"
+          className="custom-player-external-audio"
+          aria-hidden="true"
+          onError={() => {
+            setExternalAudioError(true);
+            setAudioTrack("original");
+            if (videoRef.current) videoRef.current.muted = isMuted;
+          }}
+        />
+      )}
 
       {/* HIỆU ỨNG ICON PLAY / PAUSE NHẤP NHÁY KHI BẤM VÀO MÀN HÌNH */}
       {clickFeedback.type && (
@@ -765,6 +863,41 @@ export default function CustomPlayer({
                     </div>
                   </div>
                   <div className="settings-divider" />
+                  {audio && (
+                    <>
+                      <div className="settings-section">
+                        <span className="settings-header">Âm thanh</span>
+                        <div className="speed-options-list">
+                          <button
+                            type="button"
+                            className={`speed-option-item ${
+                              audioTrack === "original" ? "selected" : ""
+                            }`}
+                            onClick={() => selectAudioTrack("original")}
+                          >
+                            <span>Âm thanh gốc</span>
+                            {audioTrack === "original" && <Check size={14} />}
+                          </button>
+                          <button
+                            type="button"
+                            className={`speed-option-item ${
+                              audioTrack === "external" ? "selected" : ""
+                            }`}
+                            disabled={externalAudioError}
+                            onClick={() => selectAudioTrack("external")}
+                          >
+                            <span>
+                              {externalAudioError
+                                ? "Audio bổ sung bị lỗi"
+                                : "Audio lồng tiếng"}
+                            </span>
+                            {audioTrack === "external" && <Check size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="settings-divider" />
+                    </>
+                  )}
                   <div className="settings-section quality-info">
                     <span className="settings-header">Độ phân giải</span>
                     <span className="quality-badge">{quality}</span>

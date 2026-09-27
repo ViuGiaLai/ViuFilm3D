@@ -197,6 +197,31 @@ export const movieRepository = {
     return fromRow(data as MovieRow);
   },
 
+  async recordView(
+    id: number,
+    playbackKey: string,
+    viewerId: string,
+  ): Promise<{ views: number; counted: boolean }> {
+    const { data, error } = await createSupabaseAdminClient().rpc(
+      "record_movie_view",
+      {
+        p_movie_id: id,
+        p_playback_key: playbackKey,
+        p_viewer_id: viewerId,
+      },
+    );
+
+    if (error) throwDatabaseError(error.message);
+    if (data === null || data === undefined) {
+      throwDatabaseError(`Không tìm thấy phim có mã ${id}.`);
+    }
+    const result = data as { views?: unknown; counted?: unknown };
+    return {
+      views: Number(result.views),
+      counted: result.counted === true,
+    };
+  },
+
   async remove(id: number): Promise<boolean> {
     const { data, error } = await createSupabaseAdminClient()
       .from("movies")

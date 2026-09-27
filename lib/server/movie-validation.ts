@@ -194,6 +194,7 @@ export function parseMovie(value: unknown): Movie {
       return {
         episode: epNum,
         video: vid,
+        audio: optionalMedia((item as { audio?: unknown }).audio),
         title:
           typeof (item as { title?: unknown }).title === "string"
             ? (item as { title: string }).title.trim()

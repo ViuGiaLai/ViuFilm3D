@@ -1,6 +1,7 @@
 export type EpisodeItem = {
   episode: number;
   video: string;
+  audio?: string;
   title?: string;
   duration?: number;
   isTrailer?: boolean;

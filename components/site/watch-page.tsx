@@ -10,7 +10,6 @@ import {
   Maximize2,
   Minimize2,
   Plus,
-  Volume2,
 } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import type { Navigate, WatchMovie } from "@/components/site/types";
@@ -22,6 +21,7 @@ type WatchPageProps = {
   movies?: Movie[];
   go: Navigate;
   onWatch: WatchMovie;
+  onView: (movie: Movie, episode: number, playbackKey: string) => void;
   favorite?: boolean;
   toggleFavorite?: (id: number) => void;
 };
@@ -30,6 +30,7 @@ export default function WatchPage({
   movie,
   go,
   onWatch,
+  onView,
   favorite = false,
   toggleFavorite,
 }: WatchPageProps) {
@@ -49,6 +50,12 @@ export default function WatchPage({
   const [episode, setEpisode] = useState(initialEp);
   const [isExpanded, setIsExpanded] = useState(false);
   const playerColumnRef = useRef<HTMLElement>(null);
+  const reportedViewsRef = useRef<Set<string>>(new Set());
+  const watchProgressRef = useRef({
+    playbackKey: "",
+    lastVideoTime: 0,
+    watchedSeconds: 0,
+  });
   const [expandedDesc, setExpandedDesc] = useState(false);
   const [showTrailer, setShowTrailer] = useState(
     Boolean(trailerQuery) ||
@@ -76,28 +83,37 @@ export default function WatchPage({
 
   const trailerVideo = movie.trailer || "";
 
+  const currentEpisodeItem = isSingle
+    ? undefined
+    : movie.episodes?.find((item) => item.episode === episode) ||
+      movie.episodes?.find((item) => {
+        if (!item.video || !item.title) return false;
+        const match = item.title.match(/(\d+)\s*-\s*(\d+)/);
+        if (!match) return false;
+        const start = parseInt(match[1], 10);
+        const end = parseInt(match[2], 10);
+        return episode >= start && episode <= end;
+      });
+
   const currentEpisodeVideo = showTrailer
     ? trailerVideo
     : isSingle
       ? movie.video
-      : movie.episodes?.find((e) => e.episode === episode)?.video ||
-        movie.episodes?.find((e) => {
-          if (!e.video || !e.title) return false;
-          const match = e.title.match(/(\d+)\s*-\s*(\d+)/);
-          if (match) {
-            const start = parseInt(match[1], 10);
-            const end = parseInt(match[2], 10);
-            return episode >= start && episode <= end;
-          }
-          return false;
-        })?.video ||
+      : currentEpisodeItem?.video ||
         (episode === 1 ? movie.video : "");
+
+  const currentEpisodeAudio = showTrailer
+    ? undefined
+    : isSingle
+      ? movie.audio
+      : currentEpisodeItem?.audio ||
+        (episode === 1 ? movie.audio : undefined);
 
   const [media, setMedia] = useState({
     video: currentEpisodeVideo,
     poster: movie.poster,
     subtitle: movie.subtitle,
-    audio: movie.audio,
+    audio: currentEpisodeAudio,
   });
   const [mediaError, setMediaError] = useState("");
 
@@ -119,7 +135,7 @@ export default function WatchPage({
       mediaGateway.resolve(currentEpisodeVideo),
       mediaGateway.resolve(movie.poster),
       mediaGateway.resolve(movie.subtitle),
-      mediaGateway.resolve(movie.audio),
+      mediaGateway.resolve(currentEpisodeAudio),
     ])
       .then(([video, poster, subtitle, audio]) => {
         if (!active) return;
@@ -139,7 +155,7 @@ export default function WatchPage({
     return () => {
       active = false;
     };
-  }, [movie, episode, currentEpisodeVideo, isSingle]);
+  }, [movie, episode, currentEpisodeVideo, currentEpisodeAudio, isSingle, showTrailer]);
 
   const selectEpisode = (ep: number) => {
     setEpisode(ep);
@@ -191,6 +207,38 @@ export default function WatchPage({
         });
       });
     });
+  };
+
+  const recordQualifiedView = (currentTime: number, duration: number) => {
+    const playbackKey = showTrailer ? "trailer" : `episode-${episode}`;
+    const progress = watchProgressRef.current;
+
+    if (progress.playbackKey !== playbackKey) {
+      progress.playbackKey = playbackKey;
+      progress.lastVideoTime = currentTime;
+      progress.watchedSeconds = 0;
+      return;
+    }
+
+    const playedDelta = currentTime - progress.lastVideoTime;
+    progress.lastVideoTime = currentTime;
+
+    // timeupdate thường cách nhau dưới 1 giây. Bỏ qua bước nhảy lớn hoặc âm
+    // vì đó là thao tác tua, không phải thời gian người dùng thực sự đã xem.
+    if (playedDelta > 0 && playedDelta <= 2) {
+      progress.watchedSeconds += playedDelta;
+    }
+
+    const threshold = Math.min(
+      30,
+      Math.max(10, Number.isFinite(duration) ? duration * 0.05 : 10),
+    );
+    if (progress.watchedSeconds < threshold) return;
+
+    if (reportedViewsRef.current.has(playbackKey)) return;
+
+    reportedViewsRef.current.add(playbackKey);
+    onView(movie, episode, playbackKey);
   };
 
   return (
@@ -291,12 +339,13 @@ export default function WatchPage({
                 src={media.video}
                 poster={media.poster || undefined}
                 subtitle={media.subtitle || undefined}
+                audio={media.audio || undefined}
                 title={movie.title}
                 episodeLabel={epLabel}
                 quality={movie.quality}
                 movieId={movie.id}
                 episodeNumber={episode}
-                onPlay={() => onWatch(movie, episode)}
+                onTimeUpdate={recordQualifiedView}
                 onEnded={() => {
                   if (!isSingle && episode < movie.totalEpisodes) {
                     selectEpisode(episode + 1);
@@ -367,15 +416,6 @@ export default function WatchPage({
             </div>
           </div>
 
-          {/* AUDIO BỔ SUNG (NẾU CÓ) */}
-          {media.audio && (
-            <div className="player-extra-audio">
-              <span>
-                <Volume2 size={14} /> Kênh Audio bổ sung:
-              </span>
-              <audio controls preload="metadata" src={media.audio} />
-            </div>
-          )}
         </section>
 
         {/* CỘT 3 (PHẢI): SIDEBAR THÔNG TIN PHIM THẬT */}

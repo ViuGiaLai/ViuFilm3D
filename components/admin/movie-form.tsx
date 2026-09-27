@@ -179,6 +179,14 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
     }
   };
 
+  const handleEpisodeAudioChange = (epNum: number, audioKey: string) => {
+    setEpisodes((prev) =>
+      prev.map((item) =>
+        item.episode === epNum ? { ...item, audio: audioKey } : item,
+      ),
+    );
+  };
+
   const handleBulkUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -290,9 +298,10 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
 
     const finalEpisodes = isSingle
       ? undefined
-      : episodes.map((ep) => ({
+        : episodes.map((ep) => ({
           episode: ep.episode,
           video: ep.video.trim(),
+          audio: ep.audio?.trim() || undefined,
           title: ep.title?.trim() || `Tập ${ep.episode}`,
         }));
     const primaryVideo =
@@ -819,6 +828,19 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
                 }
                 infoBadge={selectedEpTab === 1 ? videoBadge : undefined}
               />
+              <MediaUploader
+                key={`ep-audio-${selectedEpTab}`}
+                movieId={form.id}
+                movieSlug={`${form.slug || toSlug(form.title) || "phim"}-tap-${selectedEpTab}`}
+                category="audio"
+                label={`Audio lồng tiếng cho ${episodes.find((e) => e.episode === selectedEpTab)?.title?.trim() || `Tập ${selectedEpTab}`} (Tùy chọn)`}
+                value={
+                  episodes.find((e) => e.episode === selectedEpTab)?.audio || ""
+                }
+                onChange={(audioKey) =>
+                  handleEpisodeAudioChange(selectedEpTab, audioKey)
+                }
+              />
             </div>
           </div>
         ) : (
@@ -877,7 +899,7 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
             movieId={form.id}
             movieSlug={form.slug || toSlug(form.title) || ""}
             category="audio"
-            label="Audio bổ sung"
+            label="Audio lồng tiếng thay thế (Tùy chọn)"
             value={form.audio}
             onChange={(audio) => setForm((prev) => ({ ...prev, audio }))}
           />

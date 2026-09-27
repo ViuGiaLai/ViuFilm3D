@@ -191,6 +191,38 @@ export default function DashboardApp() {
         : `/xem/${identifier}?tap=${targetEpisode}`,
     );
   };
+  const recordView = (
+    movie: Movie,
+    episode: number,
+    playbackKey: string,
+  ) => {
+    if (playbackKey !== "trailer") {
+      const next = [
+        {
+          movieId: movie.id,
+          episode,
+          watchedAt: new Date().toISOString(),
+          progress: 4,
+        },
+        ...history.filter((item) => item.movieId !== movie.id),
+      ].slice(0, 30);
+      setHistory(next);
+      write(storage.history, next);
+    }
+
+    void movieGateway
+      .recordView(movie.id, playbackKey)
+      .then(({ views }) => {
+        setMovies((current) =>
+          current.map((item) =>
+            item.id === movie.id ? { ...item, views } : item,
+          ),
+        );
+      })
+      .catch(() => {
+        // Lỗi thống kê không được làm gián đoạn việc xem phim.
+      });
+  };
   const logout = () => {
     void authGateway.logout();
     localStorage.removeItem(storage.user);
@@ -251,7 +283,8 @@ export default function DashboardApp() {
         query={query}
         setQuery={setQuery}
         go={go}
-        mobile={() => setMobile(true)}
+        mobile={() => setMobile((current) => !current)}
+        mobileOpen={mobile}
         logout={logout}
         theme={theme}
         toggleTheme={toggleTheme}
@@ -341,6 +374,7 @@ export default function DashboardApp() {
             movies={movies}
             go={go}
             onWatch={watch}
+            onView={recordView}
             favorite={favorites.includes(selected.id)}
             toggleFavorite={toggleFavorite}
           />

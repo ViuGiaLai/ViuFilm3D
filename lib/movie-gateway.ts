@@ -25,6 +25,16 @@ const writeMockMovies = (movies: Movie[]) => {
   writeStorage(storageKeys.movies, movies);
 };
 
+export type ViewReceipt = {
+  views: number;
+  counted: boolean;
+};
+
+const VIEW_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+const viewStorageKey = (movieId: number, playbackKey: string) =>
+  `viufilm3d-view-${movieId}-${playbackKey}`;
+
 export const movieGateway = {
   mode: apiMode,
 
@@ -34,6 +44,37 @@ export const movieGateway = {
         ? readMockMovies()
         : await requestApi<Movie[]>("/movies", { cache: "no-store" });
     return [...movies].sort((a, b) => b.id - a.id);
+  },
+
+  async recordView(
+    movieId: number,
+    playbackKey: string,
+  ): Promise<ViewReceipt> {
+    if (apiMode === "mock") {
+      const movies = readMockMovies();
+      const movie = movies.find((item) => item.id === movieId);
+      if (!movie) throw new Error("Không tìm thấy phim để ghi nhận lượt xem.");
+
+      const key = viewStorageKey(movieId, playbackKey);
+      const lastCountedAt = Number(localStorage.getItem(key) || 0);
+      if (Date.now() - lastCountedAt < VIEW_WINDOW_MS) {
+        return { views: movie.views, counted: false };
+      }
+
+      const views = movie.views + 1;
+      writeMockMovies(
+        movies.map((item) =>
+          item.id === movieId ? { ...item, views } : item,
+        ),
+      );
+      localStorage.setItem(key, String(Date.now()));
+      return { views, counted: true };
+    }
+
+    return requestApi<ViewReceipt>(`/movies/${movieId}/view`, {
+      method: "POST",
+      body: JSON.stringify({ playbackKey }),
+    });
   },
 
   async save(movie: Movie): Promise<Movie> {

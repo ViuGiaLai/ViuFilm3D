@@ -1214,6 +1214,10 @@ video {
   cursor: pointer;
 }
 
+.custom-player-external-audio {
+  display: none;
+}
+
 /* 1. NÚT PLAY TRÒN CHÍNH GIỮA (User: "thiếu nút play nữa") */
 .center-big-play-btn {
   position: absolute;
@@ -1589,6 +1593,11 @@ video {
   color: var(--accent);
   font-weight: 700;
   background: rgba(245, 165, 36, 0.12);
+}
+
+.speed-option-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .settings-divider {
@@ -2142,14 +2151,36 @@ video {
 
 /* Chế độ Mở rộng (Theater Mode) */
 .watch-page-container.theater-mode .watch-main-columns {
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "player player"
+    "episodes sidebar";
+  gap: 16px;
+}
+.watch-page-container.theater-mode .watch-col-player {
+  grid-area: player;
+  width: min(1180px, 100%);
+  margin: 0;
+  justify-self: center;
+}
+.watch-page-container.theater-mode .watch-col-episodes {
+  grid-area: episodes;
+  width: 100%;
+  margin: 0;
 }
 .watch-page-container.theater-mode .watch-col-sidebar {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 16px;
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+}
+
+@media (min-width: 993px) and (max-width: 1200px) {
+  .watch-page-container.theater-mode .watch-main-columns {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
 }
 
 /* Tablet/mobile đã là bố cục một cột; theater mode không được ép sidebar thành 2 cột. */
@@ -3055,7 +3086,12 @@ video {
   .mobile-layer {
     position: fixed;
     inset: 0;
-    z-index: 120;
+    z-index: 1000;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    isolation: isolate;
   }
   .mobile-backdrop {
     position: absolute;
@@ -3077,6 +3113,7 @@ video {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    animation: mobileDrawerIn 180ms ease-out;
   }
   .mobile-layer aside > .ha-logo {
     margin: 10px 0 20px;
@@ -3110,6 +3147,15 @@ video {
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.06);
     color: #cbd5e1;
+  }
+
+  @keyframes mobileDrawerIn {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
   }
 }
 @media (max-width: 640px) {
@@ -4094,7 +4140,27 @@ html[data-mode="light"] .ha-search {
   grid-row: 2;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+}
+
+.detail-buttons {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.detail-buttons .primary-btn,
+.detail-buttons .glass-btn {
+  min-width: 154px;
+  min-height: 52px;
+  margin: 0;
+  padding: 0 20px;
+  line-height: 1;
+}
+
+.detail-buttons .primary-btn {
+  min-width: 172px;
 }
 
 .detail-inner h1 {
@@ -4126,8 +4192,12 @@ html[data-mode="light"] .ha-search {
 }
 
 .detail-body {
-  grid-template-columns: 1fr 300px;
+  width: min(1100px, 100%);
+  margin-inline: auto;
+  padding: 28px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 32px;
+  align-items: start;
 }
 
 .movie-info,
@@ -4137,6 +4207,38 @@ html[data-mode="light"] .ha-search {
   background: var(--panel);
   border-color: var(--line);
   border-radius: 14px;
+}
+
+@media (min-width: 600px) and (max-width: 900px) {
+  .detail-inner {
+    padding: 28px 22px;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 16px 24px;
+  }
+
+  .detail-inner h1 {
+    font-size: 28px;
+  }
+
+  .detail-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-buttons .primary-btn,
+  .detail-buttons .glass-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .detail-buttons .primary-btn {
+    grid-column: 1 / -1;
+  }
+
+  .detail-body {
+    grid-template-columns: 1fr;
+    padding: 24px 22px;
+  }
 }
 
 .episode-grid button {
@@ -4230,16 +4332,16 @@ html[data-mode="light"] .ha-search {
     width: 36px;
     height: 36px;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 9px;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
     color: #e2e8f0;
     cursor: pointer;
     transition: all 0.2s ease;
   }
 
   .mobile-menu:active {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
     transform: scale(0.96);
   }
 
