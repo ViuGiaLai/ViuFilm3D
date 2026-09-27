@@ -17,6 +17,7 @@ type ResolvedMedia = {
 };
 
 const resolvedCache = new Map<string, { url: string; expiresAt: number }>();
+const pendingResolutions = new Map<string, Promise<string>>();
 
 const isDirectUrl = (value: string) =>
   value.startsWith("/") ||
@@ -145,24 +146,44 @@ export const mediaGateway = {
     }
   },
 
-  async resolve(value?: string): Promise<string | undefined> {
+  async resolve(
+    value?: string,
+    options?: { forceRefresh?: boolean },
+  ): Promise<string | undefined> {
     if (!value || isDirectUrl(value)) return value;
     const cached = resolvedCache.get(value);
-    if (cached && cached.expiresAt > Date.now()) return cached.url;
+    if (!options?.forceRefresh && cached && cached.expiresAt > Date.now()) {
+      return cached.url;
+    }
+
+    if (!options?.forceRefresh) {
+      const pending = pendingResolutions.get(value);
+      if (pending) return pending;
+    }
 
     if (apiMode === "mock") {
       return value;
     }
 
-    const resolved = await requestApi<ResolvedMedia>(
+    const request = requestApi<ResolvedMedia>(
       `/media/url?key=${encodeURIComponent(value)}`,
       { cache: "no-store" },
-    );
-    resolvedCache.set(value, {
-      url: resolved.url,
-      expiresAt: Date.parse(resolved.expiresAt) - 5 * 60 * 1000,
+    ).then((resolved) => {
+      resolvedCache.set(value, {
+        url: resolved.url,
+        expiresAt: Date.parse(resolved.expiresAt) - 5 * 60 * 1000,
+      });
+      return resolved.url;
     });
-    return resolved.url;
+
+    if (options?.forceRefresh) return request;
+
+    pendingResolutions.set(value, request);
+    try {
+      return await request;
+    } finally {
+      pendingResolutions.delete(value);
+    }
   },
 
   async remove(key: string) {

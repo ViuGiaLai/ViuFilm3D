@@ -1,5 +1,8 @@
 import "server-only";
-import { createSupabaseReadClient } from "@/lib/supabase/server";
+import {
+  createSupabaseAdminClient,
+  createSupabaseReadClient,
+} from "@/lib/supabase/server";
 import {
   isAdminAuthConfigured,
   isR2Configured,
@@ -12,6 +15,7 @@ export type ServiceState = "connected" | "not_configured" | "unavailable";
 export type BackendStatus = {
   api: "ok";
   database: ServiceState;
+  viewCounter: ServiceState;
   databaseAdmin: "configured" | "not_configured";
   adminAuth: "configured" | "not_configured";
   objectStorage: "configured" | "not_configured";
@@ -20,6 +24,7 @@ export type BackendStatus = {
 
 export async function getBackendStatus(): Promise<BackendStatus> {
   let database: ServiceState = "not_configured";
+  let viewCounter: ServiceState = "not_configured";
 
   if (isSupabaseReadConfigured()) {
     try {
@@ -35,6 +40,18 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     }
   }
 
+  if (isSupabaseAdminConfigured()) {
+    try {
+      const { error } = await createSupabaseAdminClient()
+        .from("movie_view_events")
+        .select("id")
+        .limit(1);
+      viewCounter = error ? "unavailable" : "connected";
+    } catch {
+      viewCounter = "unavailable";
+    }
+  }
+
   const databaseAdmin = isSupabaseAdminConfigured()
     ? "configured"
     : "not_configured";
@@ -44,11 +61,13 @@ export async function getBackendStatus(): Promise<BackendStatus> {
   return {
     api: "ok",
     database,
+    viewCounter,
     databaseAdmin,
     adminAuth,
     objectStorage,
     ready:
       database === "connected" &&
+      viewCounter === "connected" &&
       databaseAdmin === "configured" &&
       adminAuth === "configured" &&
       objectStorage === "configured",

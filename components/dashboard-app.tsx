@@ -20,6 +20,7 @@ import SiteFooter from "@/components/site/site-footer";
 import SiteHeader, { MobileNav } from "@/components/site/site-header";
 import WatchPage from "@/components/site/watch-page";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
+import { CultivationSeal } from "@/components/ui/cultivation-seal";
 import type { Account, HistoryItem, ThemeMode } from "@/lib/app-types";
 import type {
   MovieFormat,
@@ -124,7 +125,7 @@ export default function DashboardApp() {
       }
 
       if (failures.length) {
-        setToast(`Không thể tải ${failures.join(", ")} từ backend.`);
+        setToast("Một số nội dung chưa tải được. Vui lòng tải lại trang sau.");
       }
       setReady(true);
     });
@@ -191,7 +192,11 @@ export default function DashboardApp() {
         : `/xem/${identifier}?tap=${targetEpisode}`,
     );
   };
-  const recordView = (movie: Movie, episode: number, playbackKey: string) => {
+  const recordView = async (
+    movie: Movie,
+    episode: number,
+    playbackKey: string,
+  ): Promise<void> => {
     if (playbackKey !== "trailer") {
       const next = [
         {
@@ -206,18 +211,12 @@ export default function DashboardApp() {
       write(storage.history, next);
     }
 
-    void movieGateway
-      .recordView(movie.id, playbackKey)
-      .then(({ views }) => {
-        setMovies((current) =>
-          current.map((item) =>
-            item.id === movie.id ? { ...item, views } : item,
-          ),
-        );
-      })
-      .catch(() => {
-        // Lỗi thống kê không được làm gián đoạn việc xem phim.
-      });
+    // View tracking is background telemetry. Playback must remain uninterrupted
+    // and visitors must never see raw API errors if this request fails.
+    const { views } = await movieGateway.recordView(movie.id, playbackKey);
+    setMovies((current) =>
+      current.map((item) => (item.id === movie.id ? { ...item, views } : item)),
+    );
   };
   const logout = () => {
     void authGateway.logout();
@@ -268,6 +267,9 @@ export default function DashboardApp() {
     );
   return (
     <div className="cinema-app">
+      <div className="cinema-ambient-seal">
+        <CultivationSeal />
+      </div>
       {toast && (
         <div className="ha-toast">
           <Check size={16} />
@@ -366,6 +368,7 @@ export default function DashboardApp() {
       {pathname.startsWith("/xem/") &&
         (selected ? (
           <WatchPage
+            key={selected.id}
             movie={selected}
             movies={movies}
             go={go}

@@ -21,7 +21,7 @@ type WatchPageProps = {
   movies?: Movie[];
   go: Navigate;
   onWatch: WatchMovie;
-  onView: (movie: Movie, episode: number, playbackKey: string) => void;
+  onView: (movie: Movie, episode: number, playbackKey: string) => Promise<void>;
   favorite?: boolean;
   toggleFavorite?: (id: number) => void;
 };
@@ -51,6 +51,7 @@ export default function WatchPage({
   const [isExpanded, setIsExpanded] = useState(false);
   const playerColumnRef = useRef<HTMLElement>(null);
   const reportedViewsRef = useRef<Set<string>>(new Set());
+  const viewRetryAtRef = useRef<Map<string, number>>(new Map());
   const watchProgressRef = useRef({
     playbackKey: "",
     lastVideoTime: 0,
@@ -107,20 +108,29 @@ export default function WatchPage({
       ? movie.audio
       : currentEpisodeItem?.audio || (episode === 1 ? movie.audio : undefined);
 
-  const [media, setMedia] = useState({
-    video: currentEpisodeVideo,
-    poster: movie.poster,
-    subtitle: movie.subtitle,
-    audio: currentEpisodeAudio,
-  });
+  const [media, setMedia] = useState<{
+    source: string;
+    video: string;
+    poster?: string;
+    subtitle?: string;
+    audio?: string;
+  }>({ source: "", video: "" });
+  const [mediaLoading, setMediaLoading] = useState(
+    Boolean(currentEpisodeVideo),
+  );
   const [mediaError, setMediaError] = useState("");
+  const refreshedMediaRef = useRef<Set<string>>(new Set());
+  const activeMediaSourceRef = useRef(currentEpisodeVideo);
+  activeMediaSourceRef.current = currentEpisodeVideo;
 
   useEffect(() => {
     let active = true;
     setMediaError("");
+    setMedia({ source: currentEpisodeVideo, video: "" });
+    setMediaLoading(Boolean(currentEpisodeVideo));
 
     if (!currentEpisodeVideo) {
-      setMedia((prev) => ({ ...prev, video: "" }));
+      setMediaLoading(false);
       setMediaError(
         showTrailer
           ? "Trailer đang được cập nhật. Vui lòng thử lại sau."
@@ -129,38 +139,89 @@ export default function WatchPage({
       return;
     }
 
-    void Promise.all([
-      mediaGateway.resolve(currentEpisodeVideo),
+    // Start the video as soon as its URL is ready. Optional media must not
+    // delay playback or turn a usable video into an error state.
+    void mediaGateway
+      .resolve(currentEpisodeVideo)
+      .then((video) => {
+        if (!active) return;
+        if (!video) throw new Error("Không tìm thấy đường dẫn video.");
+        setMedia((previous) => ({ ...previous, video }));
+        setMediaLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setMediaLoading(false);
+        setMediaError(
+          "Không thể tải video lúc này. Vui lòng thử lại sau hoặc chọn tập khác.",
+        );
+      });
+
+    void Promise.allSettled([
       mediaGateway.resolve(movie.poster),
       mediaGateway.resolve(movie.subtitle),
       mediaGateway.resolve(currentEpisodeAudio),
-    ])
-      .then(([video, poster, subtitle, audio]) => {
-        if (!active) return;
-        setMedia({
-          video: video || currentEpisodeVideo,
-          poster: poster || movie.poster,
-          subtitle,
-          audio,
-        });
-      })
-      .catch((error) => {
-        if (!active) return;
-        setMediaError(
-          error instanceof Error ? error.message : "Không thể tải media từ R2.",
-        );
-      });
+    ]).then(([poster, subtitle, audio]) => {
+      if (!active) return;
+      setMedia((previous) => ({
+        ...previous,
+        poster: poster.status === "fulfilled" ? poster.value : undefined,
+        subtitle: subtitle.status === "fulfilled" ? subtitle.value : undefined,
+        audio: audio.status === "fulfilled" ? audio.value : undefined,
+      }));
+    });
+
     return () => {
       active = false;
     };
   }, [
-    movie,
     episode,
     currentEpisodeVideo,
     currentEpisodeAudio,
-    isSingle,
+    movie.poster,
+    movie.subtitle,
     showTrailer,
   ]);
+
+  const playbackVideo = media.source === currentEpisodeVideo ? media.video : "";
+  const isMediaLoading =
+    mediaLoading ||
+    (Boolean(currentEpisodeVideo) && media.source !== currentEpisodeVideo);
+
+  const handlePlaybackError = () => {
+    if (!currentEpisodeVideo) return;
+    const sourceKey = `${movie.id}:${currentEpisodeVideo}`;
+    const message =
+      "Video không thể phát. Vui lòng kiểm tra kết nối hoặc định dạng tệp.";
+
+    if (
+      !currentEpisodeVideo.startsWith("movies/") ||
+      refreshedMediaRef.current.has(sourceKey)
+    ) {
+      setMediaError(message);
+      return;
+    }
+
+    refreshedMediaRef.current.add(sourceKey);
+    setMediaError("Đang làm mới liên kết video…");
+    void mediaGateway
+      .resolve(currentEpisodeVideo, { forceRefresh: true })
+      .then((video) => {
+        if (activeMediaSourceRef.current !== currentEpisodeVideo) return;
+        if (!video) throw new Error(message);
+        setMedia((previous) =>
+          previous.source === currentEpisodeVideo
+            ? { ...previous, video }
+            : previous,
+        );
+        setMediaError("");
+      })
+      .catch(() => {
+        if (activeMediaSourceRef.current === currentEpisodeVideo) {
+          setMediaError(message);
+        }
+      });
+  };
 
   const selectEpisode = (ep: number) => {
     setEpisode(ep);
@@ -214,7 +275,7 @@ export default function WatchPage({
     });
   };
 
-  const recordQualifiedView = (currentTime: number, duration: number) => {
+  const recordQualifiedView = (currentTime: number) => {
     const playbackKey = showTrailer ? "trailer" : `episode-${episode}`;
     const progress = watchProgressRef.current;
 
@@ -234,16 +295,17 @@ export default function WatchPage({
       progress.watchedSeconds += playedDelta;
     }
 
-    const threshold = Math.min(
-      30,
-      Math.max(10, Number.isFinite(duration) ? duration * 0.05 : 10),
-    );
-    if (progress.watchedSeconds < threshold) return;
+    // Count only real playback, but do not make viewers wait 10–30 seconds.
+    if (progress.watchedSeconds < 1) return;
 
     if (reportedViewsRef.current.has(playbackKey)) return;
+    if (Date.now() < (viewRetryAtRef.current.get(playbackKey) ?? 0)) return;
 
     reportedViewsRef.current.add(playbackKey);
-    onView(movie, episode, playbackKey);
+    void onView(movie, episode, playbackKey).catch(() => {
+      reportedViewsRef.current.delete(playbackKey);
+      viewRetryAtRef.current.set(playbackKey, Date.now() + 60_000);
+    });
   };
 
   return (
@@ -338,10 +400,10 @@ export default function WatchPage({
         {/* CỘT 2 (GIỮA): KHUNG VIDEO & THANH CHỨC NĂNG */}
         <section ref={playerColumnRef} className="watch-col-player">
           <div className="player-viewport">
-            {media.video ? (
+            {playbackVideo ? (
               <CustomPlayer
-                key={`player-ep-${episode}-${media.video}`}
-                src={media.video}
+                key={`player-${movie.id}-${episode}-${playbackVideo}`}
+                src={playbackVideo}
                 poster={media.poster || undefined}
                 subtitle={media.subtitle || undefined}
                 audio={media.audio || undefined}
@@ -351,12 +413,22 @@ export default function WatchPage({
                 movieId={movie.id}
                 episodeNumber={episode}
                 onTimeUpdate={recordQualifiedView}
+                onError={handlePlaybackError}
                 onEnded={() => {
                   if (!isSingle && episode < movie.totalEpisodes) {
                     selectEpisode(episode + 1);
                   }
                 }}
               />
+            ) : isMediaLoading ? (
+              <div className="player-empty-episode" role="status">
+                <Film size={44} />
+                <h3>Đang chuẩn bị video…</h3>
+                <p>
+                  Liên kết phát đang được tải. Video sẽ xuất hiện ngay khi sẵn
+                  sàng.
+                </p>
+              </div>
             ) : movie.status === "Sắp chiếu" ? (
               <div className="player-empty-episode">
                 <Film size={44} />

@@ -53,12 +53,14 @@ async function checkBackend() {
     const adminClient = createClient(url, secretKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { error } = await adminClient.from("app_users").select("id").limit(1);
-    result(
-      "Table public.app_users with admin access",
-      !error,
-      error ? `${error.code}: ${error.message}` : undefined,
-    );
+    for (const table of ["app_users", "movie_view_events"] as const) {
+      const { error } = await adminClient.from(table).select("id").limit(1);
+      result(
+        `Table public.${table} with admin access`,
+        !error,
+        error ? `${error.code}: ${error.message}` : undefined,
+      );
+    }
   }
 
   if (failed) {

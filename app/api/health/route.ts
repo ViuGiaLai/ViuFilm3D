@@ -14,6 +14,7 @@ export async function GET() {
       service: "viufilm3d",
       apiMode: production ? "production" : "mock",
       database: production ? backend?.database : "mock",
+      viewCounter: production ? backend?.viewCounter : "mock",
       ready,
       timestamp: new Date().toISOString(),
     },

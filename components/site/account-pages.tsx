@@ -11,6 +11,7 @@ import {
   writeStorage as write,
 } from "@/lib/client-storage";
 import { apiMode } from "@/lib/config";
+import { ApiRequestError } from "@/lib/api-client";
 import type { Dispatch, SetStateAction } from "react";
 import type { Navigate } from "@/components/site/types";
 
@@ -38,9 +39,9 @@ export default function LoginPage({ onLogin, close }: LoginPageProps) {
         if (account) onLogin(account);
       } catch (submitError) {
         setError(
-          submitError instanceof Error
+          submitError instanceof ApiRequestError && submitError.status === 401
             ? submitError.message
-            : "Không thể đăng nhập backend.",
+            : "Không thể đăng nhập lúc này. Vui lòng thử lại sau.",
         );
       } finally {
         setSubmitting(false);

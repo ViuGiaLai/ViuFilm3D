@@ -35,6 +35,7 @@ type CustomPlayerProps = {
   episodeNumber: number;
   onPlay?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
+  onError?: () => void;
   onEnded?: () => void;
 };
 
@@ -138,6 +139,7 @@ export default function CustomPlayer({
   episodeNumber,
   onPlay,
   onTimeUpdate,
+  onError,
   onEnded,
 }: CustomPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -145,6 +147,7 @@ export default function CustomPlayer({
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressTrackRef = useRef<HTMLDivElement>(null);
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
+  const lastProgressSaveRef = useRef(0);
 
   // Trạng thái phát
   const [isPlaying, setIsPlaying] = useState(false);
@@ -195,8 +198,12 @@ export default function CustomPlayer({
 
   // Lưu tiến độ xem vào LocalStorage
   const saveProgress = useCallback(
-    (time: number, totalDur: number) => {
-      if (time >= 5 && totalDur > 10) {
+    (time: number, totalDur: number, force = false) => {
+      if (
+        time >= 5 &&
+        totalDur > 10 &&
+        (force || Math.abs(time - lastProgressSaveRef.current) >= 5)
+      ) {
         try {
           localStorage.setItem(
             storageKey,
@@ -206,6 +213,7 @@ export default function CustomPlayer({
               updatedAt: Date.now(),
             }),
           );
+          lastProgressSaveRef.current = time;
         } catch {
           // Ignored
         }
@@ -231,7 +239,8 @@ export default function CustomPlayer({
     const external = audioRef.current;
     if (!video || !external || !useExternalAudio) return;
 
-    if (force || Math.abs(external.currentTime - video.currentTime) > 0.35) {
+    if (!force && (video.seeking || external.paused)) return;
+    if (force || Math.abs(external.currentTime - video.currentTime) > 0.75) {
       external.currentTime = video.currentTime;
     }
     external.playbackRate = video.playbackRate;
@@ -315,9 +324,10 @@ export default function CustomPlayer({
     }
     const isPaused = videoRef.current.paused;
     if (isPaused) {
-      void videoRef.current.play();
-      playExternalAudio();
-      setIsPlaying(true);
+      void videoRef.current.play().catch(() => {
+        setIsPlaying(false);
+        setShowControls(true);
+      });
       setClickFeedback({ type: "play", key: Date.now() });
     } else {
       videoRef.current.pause();
@@ -348,8 +358,7 @@ export default function CustomPlayer({
     videoRef.current.currentTime = resumePrompt.seconds;
     if (audioRef.current) audioRef.current.currentTime = resumePrompt.seconds;
     setResumePrompt({ show: false, seconds: 0 });
-    void videoRef.current.play();
-    playExternalAudio();
+    void videoRef.current.play().catch(() => setShowControls(true));
   };
 
   // Nút 2 trong Modal: Xem lại từ đầu
@@ -358,8 +367,7 @@ export default function CustomPlayer({
     videoRef.current.currentTime = 0;
     if (audioRef.current) audioRef.current.currentTime = 0;
     setResumePrompt({ show: false, seconds: 0 });
-    void videoRef.current.play();
-    playExternalAudio();
+    void videoRef.current.play().catch(() => setShowControls(true));
   };
 
   // Tua 10 giây trước / sau (Hình 3)
@@ -627,16 +635,23 @@ export default function CustomPlayer({
         }}
         onPlay={() => {
           setIsPlaying(true);
-          playExternalAudio();
           onPlay?.();
         }}
         onPause={() => {
           audioRef.current?.pause();
           setIsPlaying(false);
           setShowControls(true);
+          const video = videoRef.current;
+          if (video) saveProgress(video.currentTime, video.duration, true);
         }}
         onWaiting={() => audioRef.current?.pause()}
         onPlaying={playExternalAudio}
+        onError={() => {
+          audioRef.current?.pause();
+          setIsPlaying(false);
+          setShowControls(true);
+          onError?.();
+        }}
         onSeeking={() => syncExternalAudio(true)}
         onTimeUpdate={(e) => {
           const v = e.currentTarget;
@@ -658,6 +673,11 @@ export default function CustomPlayer({
           audioRef.current?.pause();
           setIsPlaying(false);
           setShowControls(true);
+          try {
+            localStorage.removeItem(storageKey);
+          } catch {
+            // Storage access must not interrupt playback completion.
+          }
           onEnded?.();
         }}
       >

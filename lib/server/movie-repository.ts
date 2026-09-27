@@ -3,7 +3,7 @@ import {
   createSupabaseAdminClient,
   createSupabaseReadClient,
 } from "@/lib/supabase/server";
-import { DatabaseError } from "@/lib/server/errors";
+import { ConfigurationError, DatabaseError } from "@/lib/server/errors";
 
 type MovieRow = {
   id: number;
@@ -211,13 +211,22 @@ export const movieRepository = {
       },
     );
 
+    if (error?.code === "PGRST202" || error?.code === "42883") {
+      throw new ConfigurationError(
+        "Bộ đếm lượt xem chưa được cài đặt. Hãy chạy migration 20260927000000_add_movie_view_counter.sql trên Supabase.",
+      );
+    }
     if (error) throwDatabaseError(error.message);
     if (data === null || data === undefined) {
       throwDatabaseError(`Không tìm thấy phim có mã ${id}.`);
     }
     const result = data as { views?: unknown; counted?: unknown };
+    const views = Number(result.views);
+    if (!Number.isFinite(views) || views < 0) {
+      throwDatabaseError("Bộ đếm lượt xem trả về dữ liệu không hợp lệ.");
+    }
     return {
-      views: Number(result.views),
+      views,
       counted: result.counted === true,
     };
   },

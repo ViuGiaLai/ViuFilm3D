@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./cultivation-theme.css";
 
 export const metadata: Metadata = {
   title: "ViuFilm3D — Thế giới hoạt hình nguyên bản",

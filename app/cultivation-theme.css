@@ -1,0 +1,90 @@
+/* Decorative background only; existing page layout and colors stay unchanged. */
+.cinema-app {
+  position: relative;
+  isolation: isolate;
+}
+
+.cinema-ambient-seal {
+  --seal-color: #f2f7f4;
+  position: fixed;
+  z-index: 0;
+  top: 16vh;
+  right: max(-170px, -12vw);
+  width: min(58vw, 620px);
+  aspect-ratio: 1;
+  opacity: 0.13;
+  pointer-events: none;
+}
+
+.cinema-app > main,
+.cinema-app > footer {
+  position: relative;
+  z-index: 1;
+}
+
+.cinema-ambient-seal .cultivation-seal {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cinema-ambient-seal .seal-line,
+.cinema-ambient-seal .seal-mark,
+.cinema-ambient-seal .seal-glyph,
+.cinema-ambient-seal .seal-yinyang {
+  stroke: var(--seal-color);
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+
+.cinema-ambient-seal .seal-line-dashed {
+  stroke-dasharray: 2 8;
+}
+
+.cinema-ambient-seal .seal-line-bright {
+  stroke-width: 1.6;
+}
+
+.cinema-ambient-seal .seal-dot,
+.cinema-ambient-seal .seal-center,
+.cinema-ambient-seal .seal-trigram {
+  fill: var(--seal-color);
+}
+
+.cinema-ambient-seal .seal-trigram {
+  font-family: "Segoe UI Symbol", sans-serif;
+  font-size: 20px;
+}
+
+.cinema-ambient-seal .seal-ring-outer {
+  transform-origin: 300px 300px;
+  animation: background-seal-rotate 120s linear infinite;
+  will-change: transform;
+}
+
+@keyframes background-seal-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+html[data-mode="light"] .cinema-ambient-seal {
+  --seal-color: #173d39;
+  opacity: 0.09;
+}
+
+@media (max-width: 760px) {
+  .cinema-ambient-seal {
+    top: 23vh;
+    right: -130px;
+    width: min(92vw, 390px);
+    opacity: 0.09;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinema-ambient-seal .seal-ring-outer {
+    animation: none;
+    will-change: auto;
+  }
+}

@@ -42,6 +42,7 @@ Mở **Supabase Dashboard → SQL Editor**, chạy lần lượt:
 supabase/migrations/20260926000000_create_movies.sql
 supabase/migrations/20260926001000_create_admin.sql
 supabase/migrations/20260926002000_add_movie_media.sql
+supabase/migrations/20260927000000_add_movie_view_counter.sql
 ```
 
 Migration tạo các bảng `movies`, `app_users`, `site_settings`, index, ràng buộc dữ liệu, trigger `updated_at` và Row Level Security:
@@ -49,6 +50,7 @@ Migration tạo các bảng `movies`, `app_users`, `site_settings`, index, ràng
 - `movies`: công khai chỉ được đọc; ghi qua backend.
 - `site_settings`: công khai chỉ được đọc; ghi qua backend.
 - `app_users`: không công khai; chỉ backend dùng secret key được truy cập.
+- `movie_view_events`: ghi nhận lượt xem đủ điều kiện, tránh tính trùng trong thời gian ngắn; backend cập nhật `movies.views` bằng hàm `record_movie_view`.
 
 ## 3. Nạp dữ liệu mẫu lên Supabase
 
@@ -138,7 +140,7 @@ Các giá trị trong ví dụ là placeholder. Không đưa khóa thật vào l
 
 ## 8. Readiness và health check
 
-- `GET /api/health` là health check dùng cho Render. Ở production, endpoint chỉ trả `200` khi bảng `movies` truy cập được và toàn bộ cấu hình ghi database, đăng nhập admin, R2 đã có. Nếu thiếu, endpoint trả `503` với `status=degraded`.
+- `GET /api/health` là health check dùng cho Render. Ở production, endpoint chỉ trả `200` khi bảng `movies` và `movie_view_events` truy cập được và toàn bộ cấu hình ghi database, đăng nhập admin, R2 đã có. Nếu thiếu, endpoint trả `503` với `status=degraded`; xem trường `viewCounter` để phát hiện migration lượt xem còn thiếu.
 - `GET /api/v1/status` trả trạng thái chi tiết nhưng không trả giá trị secret: `database`, `databaseAdmin`, `adminAuth`, `objectStorage` và `ready`.
 
 Nếu `database=unavailable` nhưng URL/key Supabase đã đúng, kiểm tra đã chạy đủ ba migration hay chưa. Nếu `databaseAdmin=not_configured` hoặc `adminAuth=not_configured`, bổ sung các biến server còn thiếu rồi khởi động lại service.

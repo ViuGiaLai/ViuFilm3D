@@ -84,8 +84,9 @@ video {
   top: 90px;
   right: 24px;
   z-index: 120;
-  background: #f6f7fa;
-  color: #171b25;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
   padding: 12px 16px;
   border-radius: 12px;
   display: flex;
