@@ -16,6 +16,7 @@ import type { Account, HistoryItem } from "@/lib/app-types";
 import MovieComments from "@/components/site/movie-comments";
 import type { Navigate, WatchMovie } from "@/components/site/types";
 import { mediaGateway } from "@/lib/media-gateway";
+import { apiMode } from "@/lib/config";
 import CustomPlayer from "@/components/site/custom-player";
 
 type WatchPageProps = {
@@ -447,6 +448,9 @@ export default function WatchPage({
                   historyItem?.episode === episode && historyItem.progress < 95
                     ? (historyItem.positionSeconds ?? 0)
                     : 0
+                }
+                persistLocalProgress={
+                  apiMode === "mock" || user?.role !== "user"
                 }
                 onTimeUpdate={(currentTime, duration) => {
                   recordQualifiedView(currentTime);

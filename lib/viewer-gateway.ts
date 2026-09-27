@@ -2,11 +2,12 @@ import { requestApi } from "@/lib/api-client";
 import { apiMode } from "@/lib/config";
 import { readStorage, writeStorage } from "@/lib/client-storage";
 import type { HistoryItem } from "@/lib/app-types";
-import type { MovieComment } from "@/lib/comments";
+import type { CommentPage, MovieComment } from "@/lib/comments";
 
 export type ViewerLibrary = { favorites: number[]; history: HistoryItem[] };
 
 const mockCommentsKey = (movieId: number) => `viufilm3d-comments-${movieId}`;
+const pendingHistorySaves = new Map<number, Promise<unknown>>();
 
 export const viewerGateway = {
   async library(): Promise<ViewerLibrary> {
@@ -20,29 +21,50 @@ export const viewerGateway = {
   },
 
   async saveHistory(item: HistoryItem) {
-    await requestApi("/me/history", {
-      method: "POST",
-      body: JSON.stringify({
-        movieId: item.movieId,
-        episode: item.episode,
-        progress: item.progress,
-        positionSeconds: item.positionSeconds ?? 0,
-        durationSeconds: item.durationSeconds ?? 0,
-      }),
-    });
+    const previous = pendingHistorySaves.get(item.movieId) ?? Promise.resolve();
+    const next = previous
+      .catch(() => undefined)
+      .then(() =>
+        requestApi("/me/history", {
+          method: "POST",
+          body: JSON.stringify({
+            movieId: item.movieId,
+            episode: item.episode,
+            progress: item.progress,
+            positionSeconds: item.positionSeconds ?? 0,
+            durationSeconds: item.durationSeconds ?? 0,
+          }),
+        }),
+      );
+    pendingHistorySaves.set(item.movieId, next);
+    try {
+      await next;
+    } finally {
+      if (pendingHistorySaves.get(item.movieId) === next) {
+        pendingHistorySaves.delete(item.movieId);
+      }
+    }
   },
 
   async clearHistory() {
+    await Promise.allSettled([...pendingHistorySaves.values()]);
     await requestApi("/me/history", { method: "DELETE" });
   },
 
-  async comments(movieId: number): Promise<MovieComment[]> {
+  async comments(movieId: number, offset = 0): Promise<CommentPage> {
     if (apiMode === "mock") {
-      return readStorage<MovieComment[]>(mockCommentsKey(movieId), []);
+      const items = readStorage<MovieComment[]>(mockCommentsKey(movieId), []);
+      return {
+        items: items.slice(offset, offset + 20),
+        hasMore: items.length > offset + 20,
+      };
     }
-    return requestApi<MovieComment[]>(`/movies/${movieId}/comments`, {
-      cache: "no-store",
-    });
+    return requestApi<CommentPage>(
+      `/movies/${movieId}/comments?offset=${offset}`,
+      {
+        cache: "no-store",
+      },
+    );
   },
 
   async addComment(movieId: number, body: string, authorName: string) {
@@ -58,7 +80,7 @@ export const viewerGateway = {
       };
       writeStorage(mockCommentsKey(movieId), [
         comment,
-        ...(await this.comments(movieId)),
+        ...readStorage<MovieComment[]>(mockCommentsKey(movieId), []),
       ]);
       return comment;
     }
@@ -72,7 +94,9 @@ export const viewerGateway = {
     if (apiMode === "mock") {
       writeStorage(
         mockCommentsKey(movieId),
-        (await this.comments(movieId)).filter((item) => item.id !== commentId),
+        readStorage<MovieComment[]>(mockCommentsKey(movieId), []).filter(
+          (item) => item.id !== commentId,
+        ),
       );
       return;
     }

@@ -196,6 +196,20 @@ video {
 .movie-comments-empty {
   color: var(--muted);
 }
+.movie-comments-more {
+  display: block;
+  margin: 24px auto 0;
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--panel2);
+  font-weight: 700;
+}
+.movie-comments-more:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 .movie-comments-list {
   display: grid;
   gap: 18px;

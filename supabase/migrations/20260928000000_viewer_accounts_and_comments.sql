@@ -75,6 +75,11 @@ alter table public.movie_comments enable row level security;
 revoke all on public.movie_comments from anon, authenticated;
 grant all on public.movie_comments to service_role;
 
+drop trigger if exists movie_comments_set_updated_at on public.movie_comments;
+create trigger movie_comments_set_updated_at
+before update on public.movie_comments
+for each row execute function public.set_admin_updated_at();
+
 create table if not exists public.viewer_favorites (
   user_id bigint not null references public.app_users(id) on delete cascade,
   movie_id bigint not null references public.movies(id) on delete cascade,

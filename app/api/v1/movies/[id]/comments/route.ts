@@ -2,7 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getViewerIdentity } from "@/lib/server/viewer-session";
 import { apiData, apiError, apiProblem } from "@/lib/server/api-response";
 import { ValidationError } from "@/lib/server/errors";
-import type { MovieComment } from "@/lib/comments";
+import type { CommentPage, MovieComment } from "@/lib/comments";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -14,9 +14,16 @@ async function movieIdFrom(context: Context) {
   return id;
 }
 
-export async function GET(_request: Request, context: Context) {
+export async function GET(request: Request, context: Context) {
   try {
     const movieId = await movieIdFrom(context);
+    const rawOffset = Number(
+      new URL(request.url).searchParams.get("offset") ?? 0,
+    );
+    const offset =
+      Number.isSafeInteger(rawOffset) && rawOffset >= 0 && rawOffset <= 5000
+        ? rawOffset
+        : 0;
     const db = createSupabaseAdminClient();
     const { data, error } = await db
       .from("movie_comments")
@@ -24,11 +31,11 @@ export async function GET(_request: Request, context: Context) {
       .eq("movie_id", movieId)
       .eq("status", "visible")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .range(offset, offset + 20);
 
     if (error) throw error;
     const viewer = await getViewerIdentity().catch(() => null);
-    const comments: MovieComment[] = (data ?? []).map((row) => {
+    const comments: MovieComment[] = (data ?? []).slice(0, 20).map((row) => {
       const author = row.app_users as unknown as { name: string } | null;
       return {
         id: Number(row.id),
@@ -40,9 +47,12 @@ export async function GET(_request: Request, context: Context) {
         mine: viewer?.id === Number(row.user_id),
       };
     });
-    return apiData(comments, {
-      headers: { "Cache-Control": "no-store" },
-    });
+    return apiData<CommentPage>(
+      { items: comments, hasMore: (data?.length ?? 0) > 20 },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (error) {
     return apiError(error, "Không thể tải bình luận.");
   }

@@ -13,21 +13,32 @@ export default function MovieComments({ movieId, user, go }: Props) {
   const [comments, setComments] = useState<MovieComment[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setLoadFailed(false);
     setError("");
     void viewerGateway
       .comments(movieId)
       .then(
-        (items) => {
-          if (active) setComments(items);
+        (page) => {
+          if (active) {
+            setComments(page.items);
+            setHasMore(page.hasMore);
+          }
         },
         () => {
-          if (active) setError("Chưa thể tải bình luận. Vui lòng thử lại sau.");
+          if (active) {
+            setLoadFailed(true);
+            setError("Chưa thể tải bình luận. Vui lòng thử lại sau.");
+          }
         },
       )
       .finally(() => {
@@ -36,7 +47,26 @@ export default function MovieComments({ movieId, user, go }: Props) {
     return () => {
       active = false;
     };
-  }, [movieId]);
+  }, [movieId, reloadKey]);
+
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await viewerGateway.comments(movieId, comments.length);
+      setComments((current) => [
+        ...current,
+        ...page.items.filter(
+          (item) => !current.some((existing) => existing.id === item.id),
+        ),
+      ]);
+      setHasMore(page.hasMore);
+    } catch {
+      setError("Chưa thể tải thêm bình luận. Vui lòng thử lại.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -146,10 +176,28 @@ export default function MovieComments({ movieId, user, go }: Props) {
             </article>
           ))}
         </div>
+      ) : loadFailed ? (
+        <button
+          type="button"
+          className="movie-comments-more"
+          onClick={() => setReloadKey((value) => value + 1)}
+        >
+          Thử tải lại bình luận
+        </button>
       ) : (
         <p className="movie-comments-empty">
           Chưa có bình luận. Hãy là người đầu tiên chia sẻ cảm nhận.
         </p>
+      )}
+      {hasMore && (
+        <button
+          type="button"
+          className="movie-comments-more"
+          onClick={() => void loadMore()}
+          disabled={loadingMore}
+        >
+          {loadingMore ? "Đang tải…" : "Xem thêm bình luận"}
+        </button>
       )}
     </section>
   );

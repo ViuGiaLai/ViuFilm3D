@@ -86,7 +86,6 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     ready:
       database === "connected" &&
       viewCounter === "connected" &&
-      viewerFeatures === "connected" &&
       databaseAdmin === "configured" &&
       adminAuth === "configured" &&
       objectStorage === "configured",

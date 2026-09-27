@@ -8,6 +8,11 @@ export type MovieComment = {
   mine: boolean;
 };
 
+export type CommentPage = {
+  items: MovieComment[];
+  hasMore: boolean;
+};
+
 export type ModerationComment = MovieComment & {
   movieTitle: string;
   authorEmail: string;

@@ -1,26 +1,37 @@
 import "server-only";
 import { ConfigurationError } from "@/lib/server/errors";
 
+const getEnv = (name: string): string | undefined => {
+  const val = process.env[name];
+  return typeof val === "string" && val.trim().length > 0
+    ? val.trim()
+    : undefined;
+};
+
 const supabaseUrl = () =>
-  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  getEnv("SUPABASE_URL") || getEnv("NEXT_PUBLIC_SUPABASE_URL");
+
+const supabasePublishableKey = () =>
+  getEnv("SUPABASE_PUBLISHABLE_KEY") ||
+  getEnv("SUPABASE_ANON_KEY") ||
+  getEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
 
 export const isSupabaseReadConfigured = () =>
-  Boolean(supabaseUrl() && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  Boolean(supabaseUrl() && supabasePublishableKey());
 
 export const isSupabaseAdminConfigured = () =>
-  Boolean(supabaseUrl() && process.env.SUPABASE_SECRET_KEY);
+  Boolean(supabaseUrl() && getEnv("SUPABASE_SECRET_KEY"));
 
 export const isAdminAuthConfigured = () =>
   Boolean(
-    process.env.ADMIN_EMAIL?.trim() &&
-    process.env.ADMIN_PASSWORD &&
-    process.env.AUTH_SECRET &&
-    process.env.AUTH_SECRET.length >= 32,
+    getEnv("ADMIN_EMAIL") &&
+    getEnv("ADMIN_PASSWORD") &&
+    (getEnv("AUTH_SECRET")?.length ?? 0) >= 32,
   );
 
 export function getSupabaseReadEnv() {
   const url = supabaseUrl();
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const publishableKey = supabasePublishableKey();
   if (!url || !publishableKey) {
     throw new ConfigurationError(
       "Backend chưa được cấu hình kết nối đọc Supabase.",
@@ -31,7 +42,7 @@ export function getSupabaseReadEnv() {
 
 export function getSupabaseAdminEnv() {
   const { url } = getSupabaseReadEnv();
-  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  const secretKey = getEnv("SUPABASE_SECRET_KEY");
   if (!secretKey) {
     throw new ConfigurationError(
       "Backend chưa có SUPABASE_SECRET_KEY để thực hiện thao tác quản trị.",
@@ -41,8 +52,8 @@ export function getSupabaseAdminEnv() {
 }
 
 export function getAdminCredentials() {
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD;
+  const email = getEnv("ADMIN_EMAIL")?.toLowerCase();
+  const password = getEnv("ADMIN_PASSWORD");
   if (!email || !password) {
     throw new ConfigurationError(
       "Backend chưa cấu hình ADMIN_EMAIL và ADMIN_PASSWORD.",
@@ -52,7 +63,7 @@ export function getAdminCredentials() {
 }
 
 export function getAuthSecret() {
-  const secret = process.env.AUTH_SECRET;
+  const secret = getEnv("AUTH_SECRET");
   if (!secret || secret.length < 32) {
     throw new ConfigurationError("AUTH_SECRET phải có ít nhất 32 ký tự.");
   }
@@ -60,10 +71,10 @@ export function getAuthSecret() {
 }
 
 export function getR2Env() {
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const endpoint = process.env.R2_ENDPOINT;
-  const bucket = process.env.R2_BUCKET;
+  const accessKeyId = getEnv("R2_ACCESS_KEY_ID");
+  const secretAccessKey = getEnv("R2_SECRET_ACCESS_KEY");
+  const endpoint = getEnv("R2_ENDPOINT");
+  const bucket = getEnv("R2_BUCKET");
 
   if (!accessKeyId || !secretAccessKey || !endpoint || !bucket) {
     throw new ConfigurationError(
@@ -88,8 +99,8 @@ export function getR2Env() {
 
 export const isR2Configured = () =>
   Boolean(
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
-    process.env.R2_ENDPOINT &&
-    process.env.R2_BUCKET,
+    getEnv("R2_ACCESS_KEY_ID") &&
+    getEnv("R2_SECRET_ACCESS_KEY") &&
+    getEnv("R2_ENDPOINT") &&
+    getEnv("R2_BUCKET"),
   );

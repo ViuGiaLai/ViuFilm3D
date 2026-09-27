@@ -37,6 +37,7 @@ type CustomPlayerProps = {
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onPlaybackPause?: (currentTime: number, duration: number) => void;
   initialResumeSeconds?: number;
+  persistLocalProgress?: boolean;
   onError?: () => void;
   onEnded?: () => void;
 };
@@ -143,6 +144,7 @@ export default function CustomPlayer({
   onTimeUpdate,
   onPlaybackPause,
   initialResumeSeconds = 0,
+  persistLocalProgress = true,
   onError,
   onEnded,
 }: CustomPlayerProps) {
@@ -190,26 +192,32 @@ export default function CustomPlayer({
     let seconds = Number.isFinite(initialResumeSeconds)
       ? Math.max(0, initialResumeSeconds)
       : 0;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (typeof data.seconds === "number" && Number.isFinite(data.seconds)) {
-          seconds = Math.max(seconds, data.seconds);
+    if (persistLocalProgress) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (
+            typeof data.seconds === "number" &&
+            Number.isFinite(data.seconds)
+          ) {
+            seconds = Math.max(seconds, data.seconds);
+          }
         }
+      } catch {
+        // Ignored
       }
-    } catch {
-      // Ignored
     }
     if (seconds >= 10) setResumePrompt({ show: true, seconds });
     // The resume prompt is computed once per mounted movie/episode player.
     // Later progress updates must not reopen it while the video is playing.
-  }, [storageKey]);
+  }, [storageKey, persistLocalProgress]);
 
   // Lưu tiến độ xem vào LocalStorage
   const saveProgress = useCallback(
     (time: number, totalDur: number, force = false) => {
       if (
+        persistLocalProgress &&
         time >= 5 &&
         totalDur > 10 &&
         (force || Math.abs(time - lastProgressSaveRef.current) >= 5)
@@ -229,7 +237,7 @@ export default function CustomPlayer({
         }
       }
     },
-    [storageKey],
+    [storageKey, persistLocalProgress],
   );
 
   // Cờ nhận diện thiết bị cảm ứng vs chuột máy tính
@@ -688,10 +696,12 @@ export default function CustomPlayer({
           audioRef.current?.pause();
           setIsPlaying(false);
           setShowControls(true);
-          try {
-            localStorage.removeItem(storageKey);
-          } catch {
-            // Storage access must not interrupt playback completion.
+          if (persistLocalProgress) {
+            try {
+              localStorage.removeItem(storageKey);
+            } catch {
+              // Storage access must not interrupt playback completion.
+            }
           }
           onEnded?.();
         }}
