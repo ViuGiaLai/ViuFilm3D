@@ -94,7 +94,7 @@ export default function MovieDetail({
                     disabled
                     style={{ opacity: 0.7, cursor: "not-allowed" }}
                   >
-                    <Clock3 size={15} /> Sắp phát hành
+                    <Clock3 size={15} /> Sắp chiếu
                   </button>
                 </>
               ) : (
@@ -142,7 +142,11 @@ export default function MovieDetail({
           <SectionTitle
             eyebrow="DANH SÁCH PHÁT"
             title={
-              movie.totalEpisodes <= 1 ? "Phát phim trọn bộ" : "Các tập phim"
+              movie.status === "Sắp chiếu"
+                ? "Lịch phát hành"
+                : movie.totalEpisodes <= 1
+                  ? "Phát phim trọn bộ"
+                  : "Các tập phim"
             }
           />
           <div className="episode-grid">

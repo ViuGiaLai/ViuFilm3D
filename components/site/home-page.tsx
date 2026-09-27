@@ -51,7 +51,7 @@ export default function HomePage({
           />
           {singleMovies.length > 0 && (
             <MovieShelf
-              title="Phim lẻ đặc sắc (Bản Full)"
+              title="Phim lẻ đặc sắc"
               movies={singleMovies}
               go={go}
               favorites={favorites}

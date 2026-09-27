@@ -87,13 +87,15 @@ export default function SiteHeader({
     <header className="ha-header">
       <div className="ha-container ha-header-inner">
         <button className="mobile-menu" onClick={mobile} aria-label="Mở menu">
-          <Menu />
+          <Menu size={20} />
         </button>
         <button
+          className="ha-logo-btn"
           onClick={() => {
             resetFilters();
             go("/");
           }}
+          aria-label="Trang chủ ViuFilm3D"
         >
           <Logo />
         </button>
@@ -102,10 +104,10 @@ export default function SiteHeader({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && go("/phim")}
-            placeholder="Nhập tên phim bạn muốn tìm kiếm…"
+            placeholder="Tìm kiếm phim…"
           />
           <button onClick={() => go("/phim")} aria-label="Tìm phim">
-            <Search />
+            <Search size={16} />
           </button>
         </div>
         <div className="ha-actions">

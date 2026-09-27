@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Check,
@@ -48,6 +48,7 @@ export default function WatchPage({
 
   const [episode, setEpisode] = useState(initialEp);
   const [isExpanded, setIsExpanded] = useState(false);
+  const playerColumnRef = useRef<HTMLElement>(null);
   const [expandedDesc, setExpandedDesc] = useState(false);
   const [showTrailer, setShowTrailer] = useState(
     Boolean(trailerQuery) ||
@@ -177,6 +178,21 @@ export default function WatchPage({
     }
   };
 
+  const toggleTheaterMode = () => {
+    setIsExpanded((current) => !current);
+
+    // Sau khi đổi bố cục, đưa khung xem về đúng đầu màn hình. Nếu không,
+    // trình duyệt mobile giữ vị trí cuộn cũ và làm video nằm khuất dưới header.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        playerColumnRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+  };
+
   return (
     <main
       className={`watch-page-container ${isExpanded ? "theater-mode" : ""}`}
@@ -267,7 +283,7 @@ export default function WatchPage({
         </aside>
 
         {/* CỘT 2 (GIỮA): KHUNG VIDEO & THANH CHỨC NĂNG */}
-        <section className="watch-col-player">
+        <section ref={playerColumnRef} className="watch-col-player">
           <div className="player-viewport">
             {media.video ? (
               <CustomPlayer
@@ -317,7 +333,8 @@ export default function WatchPage({
               <button
                 type="button"
                 className="action-btn"
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={toggleTheaterMode}
+                aria-pressed={isExpanded}
               >
                 {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                 {isExpanded ? "Thu nhỏ" : "Mở rộng"}
