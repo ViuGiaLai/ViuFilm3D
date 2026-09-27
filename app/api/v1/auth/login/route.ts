@@ -6,7 +6,7 @@ import {
   createAdminToken,
 } from "@/lib/server/admin-session";
 import { apiError } from "@/lib/server/api-response";
-import { getAdminCredentials } from "@/lib/server/env";
+import { getAdminCredentials, isAdminAuthConfigured } from "@/lib/server/env";
 import { createSupabaseReadClient } from "@/lib/supabase/server";
 import {
   clearViewerSession,
@@ -16,8 +16,6 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { email: adminEmail, password: adminPassword } =
-      getAdminCredentials();
     const body = (await request.json()) as {
       email?: unknown;
       password?: unknown;
@@ -27,23 +25,27 @@ export async function POST(request: Request) {
       .toLowerCase();
     const password = String(body.password ?? "");
 
-    const suppliedPassword = Buffer.from(password);
-    const expectedPassword = Buffer.from(adminPassword);
-    const passwordMatches =
-      suppliedPassword.length === expectedPassword.length &&
-      timingSafeEqual(suppliedPassword, expectedPassword);
+    if (isAdminAuthConfigured()) {
+      const { email: adminEmail, password: adminPassword } =
+        getAdminCredentials();
+      const suppliedPassword = Buffer.from(password);
+      const expectedPassword = Buffer.from(adminPassword);
+      const passwordMatches =
+        suppliedPassword.length === expectedPassword.length &&
+        timingSafeEqual(suppliedPassword, expectedPassword);
 
-    if (email === adminEmail && passwordMatches) {
-      await clearViewerSession();
-      const response = NextResponse.json({
-        data: { email, name: "Quản trị viên", role: "admin" },
-      });
-      response.cookies.set(
-        ADMIN_COOKIE,
-        createAdminToken(email),
-        adminCookieOptions,
-      );
-      return response;
+      if (email === adminEmail && passwordMatches) {
+        await clearViewerSession();
+        const response = NextResponse.json({
+          data: { email, name: "Quản trị viên", role: "admin" },
+        });
+        response.cookies.set(
+          ADMIN_COOKIE,
+          createAdminToken(email),
+          adminCookieOptions,
+        );
+        return response;
+      }
     }
 
     const { data, error } =

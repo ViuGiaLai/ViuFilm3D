@@ -11,8 +11,8 @@ export async function DELETE(_request: Request, context: Context) {
     if (!Number.isSafeInteger(id) || id <= 0) {
       return apiProblem("Bình luận không hợp lệ.", 400);
     }
-    const viewer = await getViewerIdentity();
     const admin = await hasAdminSession();
+    const viewer = admin ? null : await getViewerIdentity();
     if (!viewer && !admin) return apiProblem("Vui lòng đăng nhập.", 401);
 
     let query = createSupabaseAdminClient()

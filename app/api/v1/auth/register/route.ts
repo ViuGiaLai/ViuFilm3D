@@ -2,12 +2,20 @@ import { createSupabaseReadClient } from "@/lib/supabase/server";
 import { adminRepository } from "@/lib/server/admin-repository";
 import { apiData, apiError, apiProblem } from "@/lib/server/api-response";
 import { ValidationError } from "@/lib/server/errors";
+import { getBackendStatus } from "@/lib/server/backend-status";
 
 export async function POST(request: Request) {
   try {
     const settings = await adminRepository.getSettings();
     if (!settings?.allowRegistration) {
       return apiProblem("Đăng ký tài khoản đang tạm đóng.", 403);
+    }
+    const backend = await getBackendStatus();
+    if (backend.viewerFeatures !== "connected") {
+      return apiProblem(
+        "Tính năng tài khoản chưa sẵn sàng. Vui lòng liên hệ quản trị viên.",
+        503,
+      );
     }
 
     const body = (await request.json()) as Record<string, unknown>;

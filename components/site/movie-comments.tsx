@@ -5,6 +5,7 @@ import { MessageCircle, Trash2 } from "lucide-react";
 import type { Account } from "@/lib/app-types";
 import type { MovieComment } from "@/lib/comments";
 import { viewerGateway } from "@/lib/viewer-gateway";
+import { ApiRequestError } from "@/lib/api-client";
 import type { Navigate } from "@/components/site/types";
 
 type Props = { movieId: number; user: Account | null; go: Navigate };
@@ -16,6 +17,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +34,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
           if (active) {
             setComments(page.items);
             setHasMore(page.hasMore);
+            setLoadedCount(page.items.length);
           }
         },
         () => {
@@ -53,7 +56,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
     if (loadingMore) return;
     setLoadingMore(true);
     try {
-      const page = await viewerGateway.comments(movieId, comments.length);
+      const page = await viewerGateway.comments(movieId, loadedCount);
       setComments((current) => [
         ...current,
         ...page.items.filter(
@@ -61,6 +64,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
         ),
       ]);
       setHasMore(page.hasMore);
+      setLoadedCount((count) => count + page.items.length);
     } catch {
       setError("Chưa thể tải thêm bình luận. Vui lòng thử lại.");
     } finally {
@@ -85,9 +89,15 @@ export default function MovieComments({ movieId, user, go }: Props) {
         user.name,
       );
       setComments((current) => [comment, ...current].slice(0, 50));
+      setLoadedCount((count) => count + 1);
       setBody("");
-    } catch {
-      setError("Chưa thể gửi bình luận. Vui lòng thử lại sau.");
+    } catch (submitError) {
+      setError(
+        submitError instanceof ApiRequestError &&
+          [400, 401, 409, 429].includes(submitError.status)
+          ? submitError.message
+          : "Chưa thể gửi bình luận. Vui lòng thử lại sau.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -98,6 +108,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
     try {
       await viewerGateway.removeComment(movieId, id);
       setComments((current) => current.filter((item) => item.id !== id));
+      setReloadKey((value) => value + 1);
     } catch {
       setError("Chưa thể xóa bình luận. Vui lòng thử lại sau.");
     }
@@ -111,7 +122,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
         <span>{comments.length}</span>
       </div>
 
-      {user?.role === "user" ? (
+      {user ? (
         <form onSubmit={submit} className="movie-comment-form">
           <label htmlFor={`comment-${movieId}`}>Chia sẻ cảm nhận của bạn</label>
           <textarea
@@ -132,14 +143,14 @@ export default function MovieComments({ movieId, user, go }: Props) {
             </button>
           </div>
         </form>
-      ) : !user ? (
+      ) : (
         <div className="movie-comments-login">
           <span>Đăng nhập hoặc tạo tài khoản để tham gia thảo luận.</span>
           <button type="button" onClick={() => go("/dang-nhap")}>
             Đăng nhập / Đăng ký
           </button>
         </div>
-      ) : null}
+      )}
 
       {error && (
         <p className="movie-comments-error" role="status">
