@@ -102,6 +102,157 @@ video {
   gap: 9px;
   white-space: nowrap;
 }
+
+.movie-comments {
+  width: min(100% - 32px, 1440px);
+  margin: 42px auto 70px;
+  padding: clamp(18px, 3vw, 32px);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.auth-mode-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  color: var(--accent);
+  text-align: center;
+  font-weight: 700;
+}
+.form-notice {
+  color: #58d6a0;
+  line-height: 1.5;
+}
+.movie-comments-heading,
+.movie-comment header,
+.movie-comment-form > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.movie-comments-heading {
+  margin-bottom: 22px;
+  color: var(--accent);
+}
+.movie-comments-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+}
+.movie-comments-heading span {
+  color: var(--muted);
+}
+.movie-comment-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+.movie-comment-form label {
+  font-weight: 650;
+}
+.movie-comment-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 90px;
+  padding: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.movie-comment-form textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.movie-comment-form > div {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+}
+.movie-comment-form button,
+.movie-comments-login button {
+  padding: 10px 17px;
+  color: #17120b;
+  background: var(--accent);
+  border-radius: 9px;
+  font-weight: 700;
+}
+.movie-comment-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.movie-comments-login {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.movie-comments-error {
+  color: var(--red);
+}
+.movie-comments-empty {
+  color: var(--muted);
+}
+.movie-comments-list {
+  display: grid;
+  gap: 18px;
+}
+.movie-comment {
+  display: flex;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.movie-comment-avatar {
+  flex: 0 0 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #17120b;
+  background: var(--accent);
+  font-weight: 800;
+}
+.movie-comment-content {
+  min-width: 0;
+  flex: 1;
+}
+.movie-comment header {
+  flex-wrap: wrap;
+}
+.movie-comment header time {
+  color: var(--muted);
+  font-size: 12px;
+}
+.movie-comment header button {
+  margin-left: auto;
+  color: var(--muted);
+}
+.movie-comment-content p {
+  margin: 9px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+.admin-comment-body {
+  max-width: 420px;
+  min-width: 220px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+@media (max-width: 600px) {
+  .movie-comments-login {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .movie-comments-heading h2 {
+    font-size: 19px;
+  }
+}
 .ha-logo img {
   width: 35px;
   height: 35px;

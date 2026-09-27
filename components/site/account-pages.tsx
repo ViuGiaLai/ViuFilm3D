@@ -18,10 +18,18 @@ import type { Navigate } from "@/components/site/types";
 type LoginPageProps = {
   onLogin: (account: Account) => void;
   close: () => void;
+  allowRegistration?: boolean;
 };
 
-export default function LoginPage({ onLogin, close }: LoginPageProps) {
+export default function LoginPage({
+  onLogin,
+  close,
+  allowRegistration = false,
+}: LoginPageProps) {
   const isProduction = apiMode === "production";
+  const [registering, setRegistering] = useState(false);
+  const [name, setName] = useState("");
+  const [notice, setNotice] = useState("");
   const [email, setEmail] = useState(isProduction ? "" : "user@gmail.com"),
     [password, setPassword] = useState(isProduction ? "" : "123456"),
     [error, setError] = useState(""),
@@ -29,9 +37,30 @@ export default function LoginPage({ onLogin, close }: LoginPageProps) {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    setNotice("");
     setSubmitting(true);
     if (apiMode === "production") {
       try {
+        if (registering) {
+          const result = await authGateway.register(
+            name.trim(),
+            email.trim().toLowerCase(),
+            password,
+          );
+          if (result.confirmationRequired) {
+            setNotice(
+              "Tài khoản đã được gửi yêu cầu đăng ký. Hãy kiểm tra email xác nhận, sau đó đăng nhập.",
+            );
+            setRegistering(false);
+          } else {
+            const account = await authGateway.login(
+              email.trim().toLowerCase(),
+              password,
+            );
+            if (account) onLogin(account);
+          }
+          return;
+        }
         const account = await authGateway.login(
           email.trim().toLowerCase(),
           password,
@@ -41,7 +70,9 @@ export default function LoginPage({ onLogin, close }: LoginPageProps) {
         setError(
           submitError instanceof ApiRequestError && submitError.status === 401
             ? submitError.message
-            : "Không thể đăng nhập lúc này. Vui lòng thử lại sau.",
+            : registering
+              ? "Không thể đăng ký lúc này. Vui lòng thử lại sau."
+              : "Không thể đăng nhập lúc này. Vui lòng thử lại sau.",
         );
       } finally {
         setSubmitting(false);
@@ -86,20 +117,34 @@ export default function LoginPage({ onLogin, close }: LoginPageProps) {
         <button type="button" className="login-close" onClick={close}>
           <X />
         </button>
-        <p className="mini-label">
-          {isProduction ? "KHU VỰC QUẢN TRỊ" : "TÀI KHOẢN VIUFILM3D"}
-        </p>
-        <h2>{isProduction ? "Đăng nhập quản trị" : "Chào mừng trở lại"}</h2>
+        <p className="mini-label">TÀI KHOẢN VIUFILM3D</p>
+        <h2>{registering ? "Tạo tài khoản người xem" : "Chào mừng trở lại"}</h2>
         <span>
           {isProduction
-            ? "Sử dụng tài khoản quản trị đã cấu hình trên máy chủ."
+            ? registering
+              ? "Đăng ký để bình luận, lưu phim yêu thích và tiếp tục xem trên thiết bị khác."
+              : "Đăng nhập để quản lý phim yêu thích, lịch sử xem và bình luận."
             : "Đăng nhập để dùng dữ liệu tài khoản mẫu trên trình duyệt."}
         </span>
+        {registering && (
+          <label>
+            Tên hiển thị
+            <input
+              required
+              minLength={2}
+              maxLength={100}
+              autoComplete="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+        )}
         <label>
           Email
           <input
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(event) => {
               setEmail(event.target.value);
@@ -112,6 +157,8 @@ export default function LoginPage({ onLogin, close }: LoginPageProps) {
           <input
             type="password"
             required
+            minLength={registering ? 8 : undefined}
+            autoComplete={registering ? "new-password" : "current-password"}
             value={password}
             onChange={(event) => {
               setPassword(event.target.value);
@@ -120,9 +167,37 @@ export default function LoginPage({ onLogin, close }: LoginPageProps) {
           />
         </label>
         {error && <p className="form-error">{error}</p>}
-        <button className="primary-btn full" disabled={submitting}>
-          {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
+        {notice && (
+          <p className="form-notice" role="status">
+            {notice}
+          </p>
+        )}
+        <button
+          type="submit"
+          className="primary-btn full"
+          disabled={submitting}
+        >
+          {submitting
+            ? "Đang xử lý..."
+            : registering
+              ? "Tạo tài khoản"
+              : "Đăng nhập"}
         </button>
+        {isProduction && allowRegistration && (
+          <button
+            type="button"
+            className="auth-mode-toggle"
+            onClick={() => {
+              setRegistering((value) => !value);
+              setError("");
+              setNotice("");
+            }}
+          >
+            {registering
+              ? "Đã có tài khoản? Đăng nhập"
+              : "Chưa có tài khoản? Đăng ký"}
+          </button>
+        )}
         {!isProduction && (
           <div className="demo-accounts-box">
             <span>Tài khoản mẫu thử nghiệm (Mock mode):</span>
@@ -166,14 +241,23 @@ type ProfilePageProps = {
 
 export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
   const [name, setName] = useState(user.name),
-    [saved, setSaved] = useState(false);
-  const submit = (event: React.FormEvent) => {
+    [saved, setSaved] = useState(false),
+    [error, setError] = useState("");
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const next = { ...user, name: name.trim() };
-    setUser(next);
-    write(storage.user, next);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setError("");
+    try {
+      const next =
+        apiMode === "production"
+          ? await authGateway.updateProfile(name.trim())
+          : { ...user, name: name.trim() };
+      setUser(next);
+      if (apiMode === "mock") write(storage.user, next);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch {
+      setError("Chưa thể lưu hồ sơ. Vui lòng thử lại sau.");
+    }
   };
   return (
     <main className="page-shell profile">
@@ -210,6 +294,11 @@ export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
         <button className="primary-btn">
           {saved ? "Đã lưu" : "Lưu thay đổi"}
         </button>
+        {error && (
+          <p className="form-error" role="status">
+            {error}
+          </p>
+        )}
       </form>
       <div className="profile-links">
         <button onClick={() => go("/yeu-thich")}>

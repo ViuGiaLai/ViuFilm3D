@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from "react";
 import type { Account, HistoryItem, ThemeMode } from "@/lib/app-types";
 import type { Movie } from "@/lib/movies";
 
@@ -30,7 +29,7 @@ export type HeaderProps = {
 export type HistoryPageProps = {
   movies: Movie[];
   history: HistoryItem[];
-  setHistory: Dispatch<SetStateAction<HistoryItem[]>>;
   go: Navigate;
   watch: WatchMovie;
+  onClear: () => void;
 };

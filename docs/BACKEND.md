@@ -30,7 +30,7 @@ AUTH_SECRET=replace-with-at-least-32-random-characters
 
 `ADMIN_PASSWORD`, `AUTH_SECRET` và `SUPABASE_SECRET_KEY` đều là bí mật phía server. Backend tạo cookie `HttpOnly`, `SameSite=Lax` đã ký sau khi admin đăng nhập. API ghi phim, quản lý người dùng và cập nhật cấu hình đều từ chối yêu cầu không có phiên admin hợp lệ. Khi tải lại trang, frontend kiểm tra lại phiên qua `/api/v1/auth/session` thay vì tin dữ liệu tài khoản trong `localStorage`.
 
-Phiên production hiện dành cho khu vực quản trị. Các tài khoản người xem trong `app_users` là dữ liệu quản lý hồ sơ, không chứa mật khẩu và không được dùng để giả lập một hệ thống đăng nhập không an toàn. Chế độ mock vẫn hỗ trợ hai tài khoản mẫu để trình diễn giao diện học tập.
+Phiên production có hai loại: quản trị dùng mật khẩu máy chủ; người xem đăng ký và đăng nhập qua **Supabase Auth**. Mật khẩu người xem không nằm trong `app_users`; bảng này chỉ lưu hồ sơ và trạng thái khóa. Phiên người xem dùng cookie `HttpOnly`; backend xác thực token với Supabase trước khi đọc/ghi bình luận hoặc thư viện cá nhân. Chế độ mock vẫn có tài khoản mẫu, bình luận mẫu trong `localStorage` và không tạo tài khoản Supabase thật.
 
 Mật khẩu Postgres không được dùng bởi `supabase-js` trong kiến trúc hiện tại.
 
@@ -42,7 +42,10 @@ Mở **Supabase Dashboard → SQL Editor**, chạy lần lượt:
 supabase/migrations/20260926000000_create_movies.sql
 supabase/migrations/20260926001000_create_admin.sql
 supabase/migrations/20260926002000_add_movie_media.sql
+supabase/migrations/20260926003000_add_movie_episodes.sql
+supabase/migrations/20260926004000_add_movie_trailer.sql
 supabase/migrations/20260927000000_add_movie_view_counter.sql
+supabase/migrations/20260928000000_viewer_accounts_and_comments.sql
 ```
 
 Migration tạo các bảng `movies`, `app_users`, `site_settings`, index, ràng buộc dữ liệu, trigger `updated_at` và Row Level Security:
@@ -51,6 +54,10 @@ Migration tạo các bảng `movies`, `app_users`, `site_settings`, index, ràng
 - `site_settings`: công khai chỉ được đọc; ghi qua backend.
 - `app_users`: không công khai; chỉ backend dùng secret key được truy cập.
 - `movie_view_events`: ghi nhận lượt xem đủ điều kiện, tránh tính trùng trong thời gian ngắn; backend cập nhật `movies.views` bằng hàm `record_movie_view`.
+- `movie_comments`: bình luận công khai, chỉ chủ bình luận hoặc quản trị được xóa; giới hạn 1000 ký tự và tần suất gửi.
+- `viewer_favorites`, `viewer_history`: danh sách yêu thích và lịch sử xem gắn với tài khoản để dùng trên nhiều thiết bị.
+
+Sau migration, bật **Authentication → Providers → Email** trong Supabase. Nếu bật xác nhận email, người xem phải mở thư xác nhận trước khi đăng nhập. Cấu hình Site URL của Supabase trỏ về địa chỉ ứng dụng đang sử dụng. Chạy `npm run backend:check` để xác nhận các bảng đã xuất hiện trước khi sử dụng production.
 
 ## 3. Nạp dữ liệu mẫu lên Supabase
 
@@ -72,7 +79,11 @@ Lệnh nạp phim mẫu, tài khoản mẫu và cấu hình mặc định. Có t
 - `PUT/DELETE /api/v1/users/:id`: quản trị tài khoản.
 - `GET /api/v1/settings`: cấu hình hiển thị công khai.
 - `PUT /api/v1/settings`: cập nhật cấu hình.
-- `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/session`: phiên quản trị.
+- `POST /api/v1/auth/register`: đăng ký người xem khi `allow_registration` bật.
+- `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/session`: phiên quản trị và người xem.
+- `GET/POST /api/v1/movies/:id/comments`, `DELETE /api/v1/comments/:id`: đọc, viết và xóa bình luận.
+- `GET /api/v1/admin/comments`, `PATCH /api/v1/comments/:id`: quản trị xem, ẩn/hiện bình luận. Trang quản trị có mục **Bình luận**.
+- `GET /api/v1/me/library`, `PUT/DELETE /api/v1/me/favorites/:movieId`, `POST/DELETE /api/v1/me/history`, `PATCH /api/v1/me/profile`: dữ liệu người xem đã đăng nhập.
 - `GET /api/v1/status`: trạng thái kết nối API và database, không trả về bí mật.
 - `/api/v1/media/*`: upload, xác nhận, đọc, liệt kê và xóa media trên R2.
 
@@ -140,7 +151,7 @@ Các giá trị trong ví dụ là placeholder. Không đưa khóa thật vào l
 
 ## 8. Readiness và health check
 
-- `GET /api/health` là health check dùng cho Render. Ở production, endpoint chỉ trả `200` khi bảng `movies` và `movie_view_events` truy cập được và toàn bộ cấu hình ghi database, đăng nhập admin, R2 đã có. Nếu thiếu, endpoint trả `503` với `status=degraded`; xem trường `viewCounter` để phát hiện migration lượt xem còn thiếu.
+- `GET /api/health` là health check dùng cho Render. Ở production, endpoint chỉ trả `200` khi bảng phim, bộ đếm lượt xem, hồ sơ người xem, bình luận và thư viện cá nhân truy cập được, đồng thời cấu hình đăng nhập admin và R2 đầy đủ. Nếu thiếu, endpoint trả `503` với `status=degraded`; xem `viewCounter` hoặc `viewerFeatures` để biết migration nào còn thiếu.
 - `GET /api/v1/status` trả trạng thái chi tiết nhưng không trả giá trị secret: `database`, `databaseAdmin`, `adminAuth`, `objectStorage` và `ready`.
 
 Nếu `database=unavailable` nhưng URL/key Supabase đã đúng, kiểm tra đã chạy đủ ba migration hay chưa. Nếu `databaseAdmin=not_configured` hoặc `adminAuth=not_configured`, bổ sung các biến server còn thiếu rồi khởi động lại service.

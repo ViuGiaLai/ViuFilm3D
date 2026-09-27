@@ -7,6 +7,12 @@ import {
 } from "@/lib/server/admin-session";
 import { apiError } from "@/lib/server/api-response";
 import { getAdminCredentials } from "@/lib/server/env";
+import { createSupabaseReadClient } from "@/lib/supabase/server";
+import {
+  clearViewerSession,
+  findViewerProfile,
+  setViewerSession,
+} from "@/lib/server/viewer-session";
 
 export async function POST(request: Request) {
   try {
@@ -27,21 +33,47 @@ export async function POST(request: Request) {
       suppliedPassword.length === expectedPassword.length &&
       timingSafeEqual(suppliedPassword, expectedPassword);
 
-    if (email !== adminEmail || !passwordMatches) {
+    if (email === adminEmail && passwordMatches) {
+      await clearViewerSession();
+      const response = NextResponse.json({
+        data: { email, name: "Quản trị viên", role: "admin" },
+      });
+      response.cookies.set(
+        ADMIN_COOKIE,
+        createAdminToken(email),
+        adminCookieOptions,
+      );
+      return response;
+    }
+
+    const { data, error } =
+      await createSupabaseReadClient().auth.signInWithPassword({
+        email,
+        password,
+      });
+    if (error || !data.session) {
       return NextResponse.json(
-        { error: "Email hoặc mật khẩu không chính xác." },
+        {
+          error:
+            "Email hoặc mật khẩu không chính xác, hoặc email chưa được xác nhận.",
+        },
         { status: 401 },
       );
     }
 
-    const response = NextResponse.json({
-      data: { email, name: "Quản trị viên", role: "admin" },
+    const viewer = await findViewerProfile(data.user.id);
+    if (!viewer) {
+      return NextResponse.json(
+        { error: "Tài khoản chưa sẵn sàng hoặc đã bị khóa." },
+        { status: 403 },
+      );
+    }
+    await setViewerSession(data.session);
+    const response = NextResponse.json({ data: viewer.account });
+    response.cookies.set(ADMIN_COOKIE, "", {
+      ...adminCookieOptions,
+      maxAge: 0,
     });
-    response.cookies.set(
-      ADMIN_COOKIE,
-      createAdminToken(email),
-      adminCookieOptions,
-    );
     return response;
   } catch (error) {
     return apiError(error, "Yêu cầu đăng nhập không hợp lệ.");

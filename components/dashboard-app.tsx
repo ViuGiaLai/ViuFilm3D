@@ -7,6 +7,7 @@ import { movieSeed, type Movie } from "@/lib/movies";
 import { movieGateway } from "@/lib/movie-gateway";
 import { apiMode } from "@/lib/config";
 import { authGateway } from "@/lib/auth-gateway";
+import { viewerGateway } from "@/lib/viewer-gateway";
 import AdminPanel from "@/components/admin/admin-panel";
 import LoginPage, { ProfilePage } from "@/components/site/account-pages";
 import CatalogPage from "@/components/site/catalog-page";
@@ -88,7 +89,7 @@ export default function DashboardApp() {
       apiMode === "production"
         ? authGateway.session()
         : Promise.resolve(storedAccount),
-    ]).then(([catalogResult, settingsResult, accountResult]) => {
+    ]).then(async ([catalogResult, settingsResult, accountResult]) => {
       if (!active) return;
 
       const failures: string[] = [];
@@ -115,6 +116,18 @@ export default function DashboardApp() {
 
       if (accountResult.status === "fulfilled") {
         setUser(accountResult.value);
+        if (accountResult.value?.role === "user" && apiMode === "production") {
+          try {
+            const library = await viewerGateway.library();
+            if (!active) return;
+            setFavorites(library.favorites);
+            setHistory(library.history);
+          } catch {
+            setFavorites([]);
+            setHistory([]);
+            failures.push("thư viện cá nhân");
+          }
+        }
         if (!accountResult.value && apiMode === "production") {
           localStorage.removeItem(storage.user);
         }
@@ -153,14 +166,34 @@ export default function DashboardApp() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const toggleFavorite = (id: number) => {
+    const wasFavorite = favorites.includes(id);
     const next = favorites.includes(id)
       ? favorites.filter((item) => item !== id)
       : [...favorites, id];
     setFavorites(next);
-    write(storage.favorites, next);
+    if (apiMode === "production" && user?.role === "user") {
+      void viewerGateway.setFavorite(id, !wasFavorite).catch(() => {
+        setFavorites((current) =>
+          wasFavorite
+            ? [...new Set([...current, id])]
+            : current.filter((item) => item !== id),
+        );
+        flash("Chưa thể lưu phim yêu thích. Vui lòng thử lại.");
+      });
+    } else {
+      write(storage.favorites, next);
+    }
     flash(
       favorites.includes(id) ? "Đã bỏ khỏi yêu thích" : "Đã thêm vào yêu thích",
     );
+  };
+  const saveWatchHistory = (item: HistoryItem, next: HistoryItem[]) => {
+    setHistory(next);
+    if (apiMode === "production" && user?.role === "user") {
+      void viewerGateway.saveHistory(item).catch(() => undefined);
+    } else {
+      write(storage.history, next);
+    }
   };
   const watch = (movie: Movie, episode = Math.max(1, movie.episode)) => {
     if (movie.status === "Sắp chiếu") {
@@ -174,17 +207,6 @@ export default function DashboardApp() {
     }
     const isSingle = movie.totalEpisodes <= 1;
     const targetEpisode = isSingle ? 1 : episode;
-    const next = [
-      {
-        movieId: movie.id,
-        episode: targetEpisode,
-        watchedAt: new Date().toISOString(),
-        progress: 4,
-      },
-      ...history.filter((item) => item.movieId !== movie.id),
-    ].slice(0, 30);
-    setHistory(next);
-    write(storage.history, next);
     const identifier = movie.slug || movie.id;
     go(
       isSingle
@@ -194,23 +216,9 @@ export default function DashboardApp() {
   };
   const recordView = async (
     movie: Movie,
-    episode: number,
+    _episode: number,
     playbackKey: string,
   ): Promise<void> => {
-    if (playbackKey !== "trailer") {
-      const next = [
-        {
-          movieId: movie.id,
-          episode,
-          watchedAt: new Date().toISOString(),
-          progress: 4,
-        },
-        ...history.filter((item) => item.movieId !== movie.id),
-      ].slice(0, 30);
-      setHistory(next);
-      write(storage.history, next);
-    }
-
     // View tracking is background telemetry. Playback must remain uninterrupted
     // and visitors must never see raw API errors if this request fails.
     const { views } = await movieGateway.recordView(movie.id, playbackKey);
@@ -218,12 +226,64 @@ export default function DashboardApp() {
       current.map((item) => (item.id === movie.id ? { ...item, views } : item)),
     );
   };
+  const savePlaybackProgress = (
+    movie: Movie,
+    episode: number,
+    currentTime: number,
+    duration: number,
+  ) => {
+    if (
+      !Number.isFinite(currentTime) ||
+      !Number.isFinite(duration) ||
+      duration <= 0
+    )
+      return;
+    const positionSeconds = Math.max(0, Math.floor(currentTime));
+    const durationSeconds = Math.max(1, Math.floor(duration));
+    const progress = Math.min(
+      100,
+      Math.max(0, Math.round((currentTime / duration) * 100)),
+    );
+    const item: HistoryItem = {
+      movieId: movie.id,
+      episode,
+      watchedAt: new Date().toISOString(),
+      progress,
+      positionSeconds,
+      durationSeconds,
+    };
+    const next = [
+      item,
+      ...history.filter((entry) => entry.movieId !== movie.id),
+    ].slice(0, 30);
+    saveWatchHistory(item, next);
+  };
+  const handleLogin = (account: Account) => {
+    setUser(account);
+    if (apiMode === "production" && account.role === "user") {
+      setFavorites([]);
+      setHistory([]);
+      void viewerGateway
+        .library()
+        .then((library) => {
+          setFavorites(library.favorites);
+          setHistory(library.history);
+        })
+        .catch(() => flash("Chưa thể tải thư viện cá nhân."));
+    } else {
+      write(storage.user, account);
+    }
+    go(account.role === "admin" ? "/admin" : "/tai-khoan");
+  };
   const logout = () => {
-    void authGateway.logout();
-    localStorage.removeItem(storage.user);
-    setUser(null);
-    go("/");
-    flash("Đã đăng xuất");
+    void authGateway.logout().finally(() => {
+      localStorage.removeItem(storage.user);
+      setUser(null);
+      setFavorites(read<number[]>(storage.favorites, []));
+      setHistory(read<HistoryItem[]>(storage.history, []));
+      go("/");
+      flash("Đã đăng xuất");
+    });
   };
   const selected = getMovieFromPath(pathname, movies);
   if (!ready)
@@ -236,11 +296,8 @@ export default function DashboardApp() {
   if (pathname === "/dang-nhap")
     return (
       <LoginPage
-        onLogin={(account: Account) => {
-          setUser(account);
-          write(storage.user, account);
-          go(account.role === "admin" ? "/admin" : "/");
-        }}
+        onLogin={handleLogin}
+        allowRegistration={siteSettings.allowRegistration}
         close={() => go("/")}
       />
     );
@@ -361,6 +418,7 @@ export default function DashboardApp() {
             go={go}
             favorite={favorites.includes(selected.id)}
             toggleFavorite={toggleFavorite}
+            user={user}
           />
         ) : (
           <NotFoundPage go={go} />
@@ -374,8 +432,11 @@ export default function DashboardApp() {
             go={go}
             onWatch={watch}
             onView={recordView}
+            onProgress={savePlaybackProgress}
+            historyItem={history.find((item) => item.movieId === selected.id)}
             favorite={favorites.includes(selected.id)}
             toggleFavorite={toggleFavorite}
+            user={user}
           />
         ) : (
           <NotFoundPage go={go} />
@@ -395,9 +456,20 @@ export default function DashboardApp() {
         <HistoryPage
           movies={movies}
           history={history}
-          setHistory={setHistory}
           go={go}
           watch={watch}
+          onClear={() => {
+            const previous = history;
+            setHistory([]);
+            if (apiMode === "production" && user?.role === "user") {
+              void viewerGateway.clearHistory().catch(() => {
+                setHistory(previous);
+                flash("Chưa thể xóa lịch sử xem.");
+              });
+            } else {
+              write(storage.history, []);
+            }
+          }}
         />
       )}
       {pathname === "/tai-khoan" &&
@@ -405,11 +477,8 @@ export default function DashboardApp() {
           <ProfilePage user={user} setUser={setUser} go={go} logout={logout} />
         ) : (
           <LoginPage
-            onLogin={(account: Account) => {
-              setUser(account);
-              write(storage.user, account);
-              go("/tai-khoan");
-            }}
+            onLogin={handleLogin}
+            allowRegistration={siteSettings.allowRegistration}
             close={() => go("/")}
           />
         ))}

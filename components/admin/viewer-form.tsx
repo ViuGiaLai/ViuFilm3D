@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Save, X } from "lucide-react";
 import type { Viewer } from "@/lib/admin-data";
+import { apiMode } from "@/lib/config";
 
 type ViewerFormProps = {
   viewer: Viewer | null;
@@ -54,7 +55,7 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
           <input
             required
             type="email"
-            disabled={viewer?.id === 1}
+            disabled={apiMode === "production" || viewer?.id === 1}
             value={form.email}
             onChange={(event) =>
               setForm({ ...form, email: event.target.value })
@@ -65,7 +66,7 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
           <label>
             Vai trò
             <select
-              disabled={viewer?.id === 1}
+              disabled={apiMode === "production" || viewer?.id === 1}
               value={form.role}
               onChange={(event) =>
                 setForm({ ...form, role: event.target.value as Viewer["role"] })
@@ -105,7 +106,13 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
           </select>
         </label>
         <p className="form-hint">
-          Mật khẩu mặc định của dữ liệu mẫu là <b>123456</b>.
+          {apiMode === "production" ? (
+            "Người xem tự đăng ký và xác nhận email. Tại đây chỉ chỉnh sửa trạng thái và gói tài khoản."
+          ) : (
+            <>
+              Mật khẩu mặc định của dữ liệu mẫu là <b>123456</b>.
+            </>
+          )}
         </p>
         <button className="primary-btn full">
           <Save /> Lưu tài khoản

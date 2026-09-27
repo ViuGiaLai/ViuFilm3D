@@ -16,6 +16,7 @@ export type BackendStatus = {
   api: "ok";
   database: ServiceState;
   viewCounter: ServiceState;
+  viewerFeatures: ServiceState;
   databaseAdmin: "configured" | "not_configured";
   adminAuth: "configured" | "not_configured";
   objectStorage: "configured" | "not_configured";
@@ -25,6 +26,7 @@ export type BackendStatus = {
 export async function getBackendStatus(): Promise<BackendStatus> {
   let database: ServiceState = "not_configured";
   let viewCounter: ServiceState = "not_configured";
+  let viewerFeatures: ServiceState = "not_configured";
 
   if (isSupabaseReadConfigured()) {
     try {
@@ -50,6 +52,21 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     } catch {
       viewCounter = "unavailable";
     }
+
+    try {
+      const db = createSupabaseAdminClient();
+      const checks = await Promise.all([
+        db.from("app_users").select("auth_user_id").limit(1),
+        db.from("movie_comments").select("id").limit(1),
+        db.from("viewer_favorites").select("user_id").limit(1),
+        db.from("viewer_history").select("user_id").limit(1),
+      ]);
+      viewerFeatures = checks.every((check) => !check.error)
+        ? "connected"
+        : "unavailable";
+    } catch {
+      viewerFeatures = "unavailable";
+    }
   }
 
   const databaseAdmin = isSupabaseAdminConfigured()
@@ -62,12 +79,14 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     api: "ok",
     database,
     viewCounter,
+    viewerFeatures,
     databaseAdmin,
     adminAuth,
     objectStorage,
     ready:
       database === "connected" &&
       viewCounter === "connected" &&
+      viewerFeatures === "connected" &&
       databaseAdmin === "configured" &&
       adminAuth === "configured" &&
       objectStorage === "configured",

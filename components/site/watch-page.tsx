@@ -12,6 +12,8 @@ import {
   Plus,
 } from "lucide-react";
 import type { Movie } from "@/lib/movies";
+import type { Account, HistoryItem } from "@/lib/app-types";
+import MovieComments from "@/components/site/movie-comments";
 import type { Navigate, WatchMovie } from "@/components/site/types";
 import { mediaGateway } from "@/lib/media-gateway";
 import CustomPlayer from "@/components/site/custom-player";
@@ -22,8 +24,16 @@ type WatchPageProps = {
   go: Navigate;
   onWatch: WatchMovie;
   onView: (movie: Movie, episode: number, playbackKey: string) => Promise<void>;
+  onProgress: (
+    movie: Movie,
+    episode: number,
+    currentTime: number,
+    duration: number,
+  ) => void;
+  historyItem?: HistoryItem;
   favorite?: boolean;
   toggleFavorite?: (id: number) => void;
+  user: Account | null;
 };
 
 export default function WatchPage({
@@ -31,8 +41,11 @@ export default function WatchPage({
   go,
   onWatch,
   onView,
+  onProgress,
+  historyItem,
   favorite = false,
   toggleFavorite,
+  user,
 }: WatchPageProps) {
   const searchParams = useSearchParams();
   const tapQuery = searchParams.get("tap");
@@ -52,6 +65,10 @@ export default function WatchPage({
   const playerColumnRef = useRef<HTMLElement>(null);
   const reportedViewsRef = useRef<Set<string>>(new Set());
   const viewRetryAtRef = useRef<Map<string, number>>(new Map());
+  const lastProgressReportRef = useRef<{ key: string; seconds: number }>({
+    key: "",
+    seconds: 0,
+  });
   const watchProgressRef = useRef({
     playbackKey: "",
     lastVideoTime: 0,
@@ -308,6 +325,20 @@ export default function WatchPage({
     });
   };
 
+  const reportPlaybackProgress = (
+    currentTime: number,
+    duration: number,
+    force = false,
+  ) => {
+    if (showTrailer || !Number.isFinite(duration) || duration <= 0) return;
+    const key = `${movie.id}:${episode}`;
+    const last = lastProgressReportRef.current;
+    if (!force && last.key === key && Math.abs(currentTime - last.seconds) < 15)
+      return;
+    lastProgressReportRef.current = { key, seconds: currentTime };
+    onProgress(movie, episode, currentTime, duration);
+  };
+
   return (
     <main
       className={`watch-page-container ${isExpanded ? "theater-mode" : ""}`}
@@ -412,7 +443,18 @@ export default function WatchPage({
                 quality={movie.quality}
                 movieId={movie.id}
                 episodeNumber={episode}
-                onTimeUpdate={recordQualifiedView}
+                initialResumeSeconds={
+                  historyItem?.episode === episode && historyItem.progress < 95
+                    ? (historyItem.positionSeconds ?? 0)
+                    : 0
+                }
+                onTimeUpdate={(currentTime, duration) => {
+                  recordQualifiedView(currentTime);
+                  reportPlaybackProgress(currentTime, duration);
+                }}
+                onPlaybackPause={(currentTime, duration) =>
+                  reportPlaybackProgress(currentTime, duration, true)
+                }
                 onError={handlePlaybackError}
                 onEnded={() => {
                   if (!isSingle && episode < movie.totalEpisodes) {
@@ -576,6 +618,7 @@ export default function WatchPage({
           </div>
         </aside>
       </div>
+      <MovieComments movieId={movie.id} user={user} go={go} />
     </main>
   );
 }

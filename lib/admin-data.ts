@@ -8,6 +8,7 @@ export type Viewer = {
   joinedAt: string;
   lastActive: string;
   watches: number;
+  hasLogin?: boolean;
 };
 
 export type SiteSettings = {

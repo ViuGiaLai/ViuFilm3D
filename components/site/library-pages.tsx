@@ -4,10 +4,6 @@ import { Clapperboard, Play, Trash2 } from "lucide-react";
 import { MovieCard } from "@/components/site/home-page";
 import { MovieArt } from "@/components/ui/movie-art";
 import type { HistoryItem } from "@/lib/app-types";
-import {
-  storageKeys as storage,
-  writeStorage as write,
-} from "@/lib/client-storage";
 import type { Movie } from "@/lib/movies";
 import type {
   HistoryPageProps,
@@ -62,13 +58,12 @@ export default function LibraryPage({
 export function HistoryPage({
   movies,
   history,
-  setHistory,
   go,
   watch,
+  onClear,
 }: HistoryPageProps) {
   const clear = () => {
-    setHistory([]);
-    write(storage.history, []);
+    onClear();
   };
   return (
     <main className="page-shell">

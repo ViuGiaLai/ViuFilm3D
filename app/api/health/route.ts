@@ -15,6 +15,7 @@ export async function GET() {
       apiMode: production ? "production" : "mock",
       database: production ? backend?.database : "mock",
       viewCounter: production ? backend?.viewCounter : "mock",
+      viewerFeatures: production ? backend?.viewerFeatures : "mock",
       ready,
       timestamp: new Date().toISOString(),
     },

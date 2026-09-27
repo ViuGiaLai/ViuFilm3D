@@ -3,7 +3,7 @@ import {
   createSupabaseAdminClient,
   createSupabaseReadClient,
 } from "@/lib/supabase/server";
-import { DatabaseError } from "@/lib/server/errors";
+import { DatabaseError, ValidationError } from "@/lib/server/errors";
 
 type UserRow = {
   id: number;
@@ -15,6 +15,7 @@ type UserRow = {
   joined_at: string;
   last_active: string;
   watches: number;
+  auth_user_id?: string | null;
 };
 
 type SettingsRow = {
@@ -37,6 +38,7 @@ const fromUserRow = (row: UserRow): Viewer => ({
   joinedAt: row.joined_at,
   lastActive: row.last_active,
   watches: Number(row.watches),
+  hasLogin: Boolean(row.auth_user_id),
 });
 
 const toUserRow = (viewer: Viewer): UserRow => ({
@@ -88,9 +90,32 @@ export const adminRepository = {
   },
 
   async saveUser(viewer: Viewer): Promise<Viewer> {
-    const { data, error } = await createSupabaseAdminClient()
+    const db = createSupabaseAdminClient();
+    const { data: existing, error: lookupError } = await db
       .from("app_users")
-      .upsert(toUserRow(viewer), { onConflict: "id" })
+      .select("id,email,role,auth_user_id")
+      .eq("id", viewer.id)
+      .maybeSingle();
+    if (lookupError) fail(lookupError.message);
+    if (!existing) {
+      throw new ValidationError(
+        "Người xem cần tự đăng ký để có tài khoản đăng nhập.",
+      );
+    }
+    if (
+      existing.auth_user_id &&
+      (existing.email !== viewer.email.toLowerCase() || viewer.role !== "user")
+    ) {
+      throw new ValidationError(
+        "Không thể đổi email hoặc vai trò của tài khoản đã đăng ký tại đây.",
+      );
+    }
+
+    const { id: _id, ...changes } = toUserRow(viewer);
+    const { data, error } = await db
+      .from("app_users")
+      .update(changes)
+      .eq("id", viewer.id)
       .select("*")
       .single();
 
@@ -99,7 +124,24 @@ export const adminRepository = {
   },
 
   async removeUser(id: number): Promise<boolean> {
-    const { data, error } = await createSupabaseAdminClient()
+    const db = createSupabaseAdminClient();
+    const { data: existing, error: lookupError } = await db
+      .from("app_users")
+      .select("auth_user_id")
+      .eq("id", id)
+      .neq("role", "admin")
+      .maybeSingle();
+    if (lookupError) fail(lookupError.message);
+    if (!existing) return false;
+
+    if (existing.auth_user_id) {
+      const { error: authError } = await db.auth.admin.deleteUser(
+        existing.auth_user_id,
+      );
+      if (authError) fail(authError.message);
+    }
+
+    const { data, error } = await db
       .from("app_users")
       .delete()
       .eq("id", id)

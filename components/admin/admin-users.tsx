@@ -118,6 +118,13 @@ export default function AdminUsers({
                   <span>
                     <b>{viewer.name}</b>
                     <small>{viewer.email}</small>
+                    {viewer.role === "user" && (
+                      <small>
+                        {viewer.hasLogin
+                          ? "Đã liên kết đăng nhập"
+                          : "Hồ sơ mẫu, chưa có đăng nhập"}
+                      </small>
+                    )}
                   </span>
                 </td>
                 <td>

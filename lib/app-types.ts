@@ -9,6 +9,8 @@ export type HistoryItem = {
   episode: number;
   watchedAt: string;
   progress: number;
+  positionSeconds?: number;
+  durationSeconds?: number;
 };
 
 export type ThemeMode = "dark" | "light";

@@ -9,6 +9,7 @@ import {
   Eye,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Plus,
   Settings,
   UserPlus,
@@ -26,6 +27,7 @@ import AdminMovies from "@/components/admin/admin-movies";
 import AdminSchedule from "@/components/admin/admin-schedule";
 import AdminSettings from "@/components/admin/admin-settings";
 import AdminUsers from "@/components/admin/admin-users";
+import AdminComments from "@/components/admin/admin-comments";
 import MovieForm from "@/components/admin/movie-form";
 import ViewerForm from "@/components/admin/viewer-form";
 import type { AdminPanelProps } from "@/components/admin/types";
@@ -48,11 +50,13 @@ export default function AdminPanel({
     ? "movies"
     : pathname.includes("/admin/lich-chieu")
       ? "schedule"
-      : pathname.includes("/admin/nguoi-dung")
-        ? "users"
-        : pathname.includes("/admin/cai-dat")
-          ? "settings"
-          : "dashboard";
+      : pathname.includes("/admin/binh-luan")
+        ? "comments"
+        : pathname.includes("/admin/nguoi-dung")
+          ? "users"
+          : pathname.includes("/admin/cai-dat")
+            ? "settings"
+            : "dashboard";
   const [editing, setEditing] = useState<Movie | null | undefined>(undefined);
   const [editingViewer, setEditingViewer] = useState<Viewer | null | undefined>(
     undefined,
@@ -241,6 +245,7 @@ export default function AdminPanel({
     movies: "Quản lý kho phim",
     schedule: "Lịch phát hành",
     users: "Quản lý người dùng",
+    comments: "Quản lý bình luận",
     settings: "Cấu hình hệ thống",
   };
   return (
@@ -280,6 +285,12 @@ export default function AdminPanel({
           onClick={() => go("/admin/nguoi-dung")}
         >
           <Users /> Người dùng
+        </button>
+        <button
+          className={section === "comments" ? "active" : ""}
+          onClick={() => go("/admin/binh-luan")}
+        >
+          <MessageCircle /> Bình luận
         </button>
         <button
           className={section === "settings" ? "active" : ""}
@@ -333,6 +344,7 @@ export default function AdminPanel({
             remove={removeViewer}
           />
         )}
+        {section === "comments" && <AdminComments />}
         {section === "settings" && (
           <AdminSettings settings={settings} save={saveSettings} />
         )}
@@ -356,7 +368,7 @@ export default function AdminPanel({
           <Plus /> Thêm phim
         </button>
       )}
-      {section === "users" && (
+      {section === "users" && apiMode === "mock" && (
         <button className="admin-fab" onClick={() => setEditingViewer(null)}>
           <UserPlus /> Thêm người dùng
         </button>

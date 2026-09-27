@@ -35,6 +35,8 @@ type CustomPlayerProps = {
   episodeNumber: number;
   onPlay?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
+  onPlaybackPause?: (currentTime: number, duration: number) => void;
+  initialResumeSeconds?: number;
   onError?: () => void;
   onEnded?: () => void;
 };
@@ -139,6 +141,8 @@ export default function CustomPlayer({
   episodeNumber,
   onPlay,
   onTimeUpdate,
+  onPlaybackPause,
+  initialResumeSeconds = 0,
   onError,
   onEnded,
 }: CustomPlayerProps) {
@@ -183,17 +187,23 @@ export default function CustomPlayer({
 
   // Kiểm tra lịch sử xem để hiện Modal "THÔNG BÁO! Bạn đã dừng lại ở..."
   useEffect(() => {
+    let seconds = Number.isFinite(initialResumeSeconds)
+      ? Math.max(0, initialResumeSeconds)
+      : 0;
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const data = JSON.parse(raw);
-        if (typeof data.seconds === "number" && data.seconds >= 10) {
-          setResumePrompt({ show: true, seconds: data.seconds });
+        if (typeof data.seconds === "number" && Number.isFinite(data.seconds)) {
+          seconds = Math.max(seconds, data.seconds);
         }
       }
     } catch {
       // Ignored
     }
+    if (seconds >= 10) setResumePrompt({ show: true, seconds });
+    // The resume prompt is computed once per mounted movie/episode player.
+    // Later progress updates must not reopen it while the video is playing.
   }, [storageKey]);
 
   // Lưu tiến độ xem vào LocalStorage
@@ -642,7 +652,10 @@ export default function CustomPlayer({
           setIsPlaying(false);
           setShowControls(true);
           const video = videoRef.current;
-          if (video) saveProgress(video.currentTime, video.duration, true);
+          if (video) {
+            saveProgress(video.currentTime, video.duration, true);
+            onPlaybackPause?.(video.currentTime, video.duration);
+          }
         }}
         onWaiting={() => audioRef.current?.pause()}
         onPlaying={playExternalAudio}
@@ -670,6 +683,8 @@ export default function CustomPlayer({
           validateExternalAudioDuration();
         }}
         onEnded={() => {
+          const video = videoRef.current;
+          if (video) onPlaybackPause?.(video.duration, video.duration);
           audioRef.current?.pause();
           setIsPlaying(false);
           setShowControls(true);

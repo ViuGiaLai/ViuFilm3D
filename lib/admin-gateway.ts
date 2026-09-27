@@ -7,8 +7,27 @@ import {
 import { requestApi } from "@/lib/api-client";
 import { apiMode } from "@/lib/config";
 import { readStorage, storageKeys, writeStorage } from "@/lib/client-storage";
+import type { ModerationComment } from "@/lib/comments";
 
 export const adminGateway = {
+  async listComments(): Promise<ModerationComment[]> {
+    if (apiMode === "mock") return [];
+    return requestApi<ModerationComment[]>("/admin/comments", {
+      cache: "no-store",
+    });
+  },
+
+  async setCommentStatus(id: number, status: "visible" | "hidden") {
+    await requestApi(`/comments/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  async removeComment(id: number) {
+    await requestApi(`/comments/${id}`, { method: "DELETE" });
+  },
+
   async listViewers(): Promise<Viewer[]> {
     if (apiMode === "mock") {
       const viewers = readStorage<Viewer[]>(storageKeys.viewers, viewerSeed);

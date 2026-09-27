@@ -6,6 +6,8 @@ import { MovieArt } from "@/components/ui/movie-art";
 import { SectionTitle } from "@/components/site/home-page";
 import { formatCompactNumber as compact } from "@/lib/format";
 import type { Movie } from "@/lib/movies";
+import type { Account } from "@/lib/app-types";
+import MovieComments from "@/components/site/movie-comments";
 import type {
   Navigate,
   ToggleFavorite,
@@ -18,6 +20,7 @@ type MovieDetailProps = {
   go: Navigate;
   favorite: boolean;
   toggleFavorite: ToggleFavorite;
+  user: Account | null;
 };
 
 export default function MovieDetail({
@@ -26,6 +29,7 @@ export default function MovieDetail({
   go,
   favorite,
   toggleFavorite,
+  user,
 }: MovieDetailProps) {
   return (
     <main>
@@ -249,6 +253,7 @@ export default function MovieDetail({
           </p>
         </aside>
       </section>
+      <MovieComments movieId={movie.id} user={user} go={go} />
     </main>
   );
 }
