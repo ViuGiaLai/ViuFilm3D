@@ -32,10 +32,24 @@ export const authGateway = {
     );
   },
 
-  async updateProfile(name: string): Promise<Account> {
+  async updateProfile(
+    name: string,
+    avatarId: string,
+    bio: string,
+    avatarFrameId?: string,
+  ): Promise<Account> {
     return requestApi<Account>("/me/profile", {
       method: "PATCH",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, avatarId, bio, avatarFrameId }),
+    });
+  },
+
+  async uploadAvatar(file: File): Promise<Account> {
+    const form = new FormData();
+    form.set("file", file);
+    return requestApi<Account>("/me/avatar", {
+      method: "POST",
+      body: form,
     });
   },
 };

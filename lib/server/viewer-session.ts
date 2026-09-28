@@ -30,7 +30,9 @@ export async function findViewerProfile(
 ): Promise<ViewerIdentity | null> {
   const { data, error } = await createSupabaseAdminClient()
     .from("app_users")
-    .select("id,name,email,role,status")
+    // Server-only row, returned through the explicit whitelist below.
+    // Existing sessions continue working before the additive migration.
+    .select("*")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
@@ -44,7 +46,19 @@ export async function findViewerProfile(
   return {
     id: Number(data.id),
     authUserId,
-    account: { email: data.email, name: data.name, role: "user" },
+    account: {
+      id: Number(data.id),
+      publicId: data.public_id,
+      cultivationXp: Number(data.cultivation_xp ?? 0),
+      avatarFrameId: data.avatar_frame_id,
+      frameGrants: data.avatar_frame_grants ?? [],
+      email: data.email,
+      name: data.name,
+      role: "user",
+      avatarId: data.avatar_id,
+      avatarVersion: data.avatar_updated_at,
+      bio: data.bio,
+    },
   };
 }
 

@@ -87,7 +87,7 @@ export function HistoryPage({
             );
             return movie ? (
               <article key={item.movieId}>
-                <button onClick={() => go(`/phim/${movie.id}`)}>
+                <button onClick={() => go(`/phim/${movie.slug}`)}>
                   <MovieArt movie={movie} />
                 </button>
                 <div>

@@ -16,6 +16,13 @@ type UserRow = {
   last_active: string;
   watches: number;
   auth_user_id?: string | null;
+  public_id?: string;
+  cultivation_xp?: number;
+  avatar_id?: string;
+  avatar_updated_at?: string | null;
+  avatar_frame_id?: string;
+  avatar_frame_grants?: string[];
+  bio?: string;
 };
 
 type SettingsRow = {
@@ -39,18 +46,13 @@ const fromUserRow = (row: UserRow): Viewer => ({
   lastActive: row.last_active,
   watches: Number(row.watches),
   hasLogin: Boolean(row.auth_user_id),
-});
-
-const toUserRow = (viewer: Viewer): UserRow => ({
-  id: viewer.id,
-  name: viewer.name,
-  email: viewer.email.toLowerCase(),
-  role: viewer.role,
-  status: viewer.status,
-  plan: viewer.plan,
-  joined_at: viewer.joinedAt,
-  last_active: viewer.lastActive,
-  watches: viewer.watches,
+  publicId: row.public_id,
+  cultivationXp: Number(row.cultivation_xp ?? 0),
+  avatarId: row.avatar_id,
+  avatarVersion: row.avatar_updated_at,
+  avatarFrameId: row.avatar_frame_id,
+  frameGrants: row.avatar_frame_grants ?? [],
+  bio: row.bio ?? "",
 });
 
 const fromSettingsRow = (row: SettingsRow): SiteSettings => ({
@@ -103,15 +105,30 @@ export const adminRepository = {
       );
     }
     if (
-      existing.auth_user_id &&
-      (existing.email !== viewer.email.toLowerCase() || viewer.role !== "user")
+      existing.role === "admin" &&
+      (viewer.role !== "admin" ||
+        viewer.email.toLowerCase() !== existing.email ||
+        viewer.status !== "Đang hoạt động")
     ) {
       throw new ValidationError(
-        "Không thể đổi email hoặc vai trò của tài khoản đã đăng ký tại đây.",
+        "Không thể khóa, đổi email hoặc vai trò của tài khoản quản trị.",
+      );
+    }
+    if (
+      existing.role !== viewer.role ||
+      existing.email !== viewer.email.toLowerCase()
+    ) {
+      throw new ValidationError(
+        "Không thể đổi email hoặc cấp quyền quản trị qua hồ sơ người xem.",
       );
     }
 
-    const { id: _id, ...changes } = toUserRow(viewer);
+    // Never trust client-supplied identity, activity counters or registration dates.
+    const changes = {
+      name: viewer.name,
+      status: viewer.status,
+      plan: viewer.plan,
+    };
     const { data, error } = await db
       .from("app_users")
       .update(changes)
@@ -149,7 +166,8 @@ export const adminRepository = {
       .select("id");
 
     if (error) fail(error.message);
-    return Boolean(data?.length);
+    // Deleting the Auth user may already cascade-delete its application profile.
+    return Boolean(existing.auth_user_id || data?.length);
   },
 
   async getSettings(): Promise<SiteSettings | null> {

@@ -53,12 +53,33 @@ async function checkBackend() {
     const adminClient = createClient(url, secretKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    const embeddedComments = await adminClient
+      .from("movie_comments")
+      .select(
+        "id,app_users!movie_comments_user_id_fkey(id,public_id,cultivation_xp,avatar_id)",
+      )
+      .limit(1);
+    result(
+      "Comment author relationship (explicit foreign key)",
+      !embeddedComments.error,
+      embeddedComments.error
+        ? `${embeddedComments.error.code}: ${embeddedComments.error.message}`
+        : undefined,
+    );
     for (const [table, column] of [
-      ["app_users", "auth_user_id"],
+      [
+        "app_users",
+        "auth_user_id,public_id,cultivation_xp,avatar_frame_id,avatar_id,avatar_updated_at,bio",
+      ],
+      ["cultivation_awards", "user_id"],
       ["movie_view_events", "id"],
-      ["movie_comments", "id"],
+      ["movie_comments", "id,parent_id,like_count"],
+      ["movie_comment_likes", "comment_id"],
       ["viewer_favorites", "user_id"],
       ["viewer_history", "user_id"],
+      ["friend_links", "id"],
+      ["direct_messages", "id"],
+      ["user_follows", "follower_id"],
     ] as const) {
       const { error } = await adminClient.from(table).select(column).limit(1);
       result(

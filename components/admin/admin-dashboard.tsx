@@ -15,6 +15,7 @@ import { formatCompactNumber as compact, formatMovieBadge } from "@/lib/format";
 import type { Viewer } from "@/lib/admin-data";
 import type { Movie } from "@/lib/movies";
 import type { Navigate } from "@/components/admin/types";
+import { apiMode } from "@/lib/config";
 
 type AdminDashboardProps = {
   movies: Movie[];
@@ -66,7 +67,11 @@ export default function AdminDashboard({
           <Eye />
           <span>Lượt xem</span>
           <strong>{compact(totalViews)}</strong>
-          <small>Dữ liệu mô phỏng</small>
+          <small>
+            {apiMode === "mock"
+              ? "Dữ liệu mô phỏng"
+              : "Tổng lượt xem ghi nhận trong hệ thống"}
+          </small>
         </div>
         <div>
           <Star />
@@ -162,7 +167,11 @@ export default function AdminDashboard({
                   {movie.title}
                   <small>{compact(movie.views)} lượt xem</small>
                 </span>
-                <i style={{ width: `${movie.views / 25000}%` }} />
+                <i
+                  style={{
+                    width: `${(movie.views / Math.max(...movies.map((item) => item.views), 1)) * 100}%`,
+                  }}
+                />
               </div>
             ))}
         </section>

@@ -110,7 +110,7 @@ export default function AdminMovies({
               value={status}
               onChange={(event) => setStatus(event.target.value)}
             >
-              <option>Tất cả trạng thái</option>
+              <option value="Tất cả">Tất cả trạng thái</option>
               <option>Đang chiếu</option>
               <option>Hoàn thành</option>
               <option>Sắp chiếu</option>

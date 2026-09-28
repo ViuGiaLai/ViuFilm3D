@@ -13,6 +13,7 @@ import {
   findViewerProfile,
   setViewerSession,
 } from "@/lib/server/viewer-session";
+import { getAdminProfile } from "@/lib/server/social-identity";
 
 export async function POST(request: Request) {
   try {
@@ -35,9 +36,14 @@ export async function POST(request: Request) {
         timingSafeEqual(suppliedPassword, expectedPassword);
 
       if (email === adminEmail && passwordMatches) {
+        const profile = await getAdminProfile(email);
         await clearViewerSession();
         const response = NextResponse.json({
-          data: { email, name: "Quản trị viên", role: "admin" },
+          data: profile?.account ?? {
+            email,
+            name: "Quản trị viên",
+            role: "admin",
+          },
         });
         response.cookies.set(
           ADMIN_COOKIE,

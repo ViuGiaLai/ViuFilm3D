@@ -321,3 +321,42 @@ export const r2Media = {
     }
   },
 };
+
+const avatarKey = (userId: number) => `avatars/${userId}/current`;
+
+export const r2Avatar = {
+  async upload(userId: number, body: Uint8Array, contentType: string) {
+    const { bucket } = getR2Env();
+    try {
+      await client().send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: avatarKey(userId),
+          Body: body,
+          ContentType: contentType,
+          CacheControl: "public, max-age=3600",
+        }),
+      );
+    } catch (error) {
+      handleR2Error(error);
+    }
+  },
+
+  async read(userId: number) {
+    const { bucket } = getR2Env();
+    try {
+      const result = await client().send(
+        new GetObjectCommand({ Bucket: bucket, Key: avatarKey(userId) }),
+      );
+      if (!result.Body) return null;
+      return {
+        bytes: await result.Body.transformToByteArray(),
+        contentType: result.ContentType ?? "image/webp",
+        etag: result.ETag,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.name === "NoSuchKey") return null;
+      handleR2Error(error);
+    }
+  },
+};

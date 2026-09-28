@@ -1,0 +1,205 @@
+/* Administration identity and navigation share the same real profile renderer. */
+.admin-layout > aside {
+  gap: 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.admin-layout > aside > .ha-logo {
+  margin-bottom: 14px;
+}
+.admin-nav-entry {
+  flex: none;
+  min-width: 0;
+}
+.admin-layout .admin-nav-group {
+  color: #748297;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  margin: 14px 12px 5px;
+}
+.admin-layout .admin-nav-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px 12px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: #a1adbf;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.admin-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 8px;
+  background: #ffffff04;
+}
+.admin-layout .admin-nav-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.7;
+}
+.admin-layout .admin-nav-btn:hover {
+  color: #eef2f8;
+  background: #ffffff06;
+  border-color: #ffffff09;
+}
+.admin-layout .admin-nav-btn.active {
+  color: #efd099;
+  background: linear-gradient(100deg, #d6b67319, #d6b67307);
+  border-color: #d6b67332;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 #d6b673;
+}
+.admin-nav-btn.active .admin-nav-icon {
+  color: #e6c17b;
+  background: #d6b67312;
+}
+.admin-nav-dot {
+  flex: 0 0 5px;
+  width: 5px;
+  height: 5px;
+  background: #d6b673;
+  border-radius: 50%;
+  margin-left: auto;
+}
+.admin-layout .admin-site-link {
+  margin-top: 10px;
+}
+.admin-layout .admin-nav-btn:focus-visible,
+.admin-account-link:focus-visible {
+  outline: 2px solid #d6b673;
+  outline-offset: 3px;
+}
+.admin-profile {
+  gap: 16px;
+  flex: none;
+}
+.admin-account-link {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 15px 10px 12px;
+  color: var(--text);
+  background: #ffffff03;
+  border: 1px solid #ffffff08;
+  border-radius: 14px;
+  min-height: 64px;
+  cursor: pointer;
+}
+.admin-account-link:hover {
+  border-color: #d6b67344;
+  background: #d6b67308;
+}
+.admin-account-copy {
+  display: grid;
+  gap: 6px;
+  text-align: right;
+  min-width: 0;
+  max-width: 180px;
+}
+.admin-account-copy strong {
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.admin-account-copy small {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 11px;
+  color: #a1adbf;
+}
+.admin-account-link > .user-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 20px;
+  flex: 0 0 38px;
+}
+@media (max-width: 760px) {
+  .admin-layout > aside > .ha-logo {
+    margin-bottom: 0;
+  }
+  .admin-layout .admin-nav-group {
+    display: none;
+  }
+  .admin-layout > aside {
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .admin-nav-entry {
+    flex: 0 0 auto;
+  }
+  .admin-layout .admin-nav-btn {
+    width: auto;
+    min-height: 44px;
+    padding: 6px 10px;
+    gap: 7px;
+    margin: 0;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .admin-layout .admin-nav-btn.active {
+    box-shadow: inset 0 -2px 0 #d6b673;
+  }
+  .admin-nav-icon {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+  .admin-nav-dot {
+    display: none;
+  }
+  .admin-layout .admin-site-link {
+    margin-top: 0;
+    flex: none;
+  }
+  .admin-profile {
+    gap: 10px;
+  }
+  .admin-account-link {
+    min-height: 52px;
+    gap: 16px;
+    padding: 9px 12px;
+  }
+}
+@media (max-width: 600px) {
+  .admin-layout main > header {
+    gap: 18px;
+    align-items: center;
+  }
+  .admin-account-copy {
+    display: none;
+  }
+  .admin-profile .api-mode-badge {
+    display: none !important;
+  }
+  .admin-account-link {
+    border: 0;
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout .admin-nav-btn {
+    transition: none;
+  }
+}

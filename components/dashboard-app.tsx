@@ -20,6 +20,8 @@ import MovieDetail from "@/components/site/movie-detail";
 import SiteFooter from "@/components/site/site-footer";
 import SiteHeader, { MobileNav } from "@/components/site/site-header";
 import WatchPage from "@/components/site/watch-page";
+import PublicProfilePage from "@/components/site/public-profile";
+import SocialPanel from "@/components/site/social-panel";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
 import { CultivationSeal } from "@/components/ui/cultivation-seal";
 import type { Account, HistoryItem, ThemeMode } from "@/lib/app-types";
@@ -67,6 +69,8 @@ export default function DashboardApp() {
     [sort, setSort] = useState<MovieSortOption>("new"),
     [onlyFree, setOnlyFree] = useState<boolean>(false),
     [mobile, setMobile] = useState(false),
+    [socialOpen, setSocialOpen] = useState(false),
+    [socialPeerId, setSocialPeerId] = useState<number | null>(null),
     [toast, setToast] = useState("");
   const timer = useRef<number | null>(null);
   useEffect(() => {
@@ -276,6 +280,7 @@ export default function DashboardApp() {
     go(account.role === "admin" ? "/admin" : "/tai-khoan");
   };
   const logout = () => {
+    setSocialOpen(false);
     void authGateway.logout().finally(() => {
       localStorage.removeItem(storage.user);
       setUser(null);
@@ -285,7 +290,22 @@ export default function DashboardApp() {
       flash("Đã đăng xuất");
     });
   };
+  const openSocial = (peerId: number | null = null) => {
+    setSocialPeerId(peerId);
+    setSocialOpen(true);
+  };
+  const profileId = pathname.startsWith("/nguoi-dung/")
+    ? pathname.split("/").filter(Boolean)[1]
+    : null;
   const selected = getMovieFromPath(pathname, movies);
+  useEffect(() => {
+    if (!ready || !selected?.slug || !/^\/(phim|xem)\/\d+$/.test(pathname))
+      return;
+    const section = pathname.split("/")[1];
+    router.replace(`/${section}/${selected.slug}${window.location.search}`, {
+      scroll: false,
+    });
+  }, [ready, selected?.slug, pathname, router]);
   if (!ready)
     return (
       <div className="ha-loading">
@@ -304,6 +324,7 @@ export default function DashboardApp() {
   if (pathname.startsWith("/admin"))
     return user?.role === "admin" ? (
       <AdminPanel
+        account={user}
         movies={movies}
         setMovies={setMovies}
         logout={logout}
@@ -343,6 +364,7 @@ export default function DashboardApp() {
         logout={logout}
         theme={theme}
         toggleTheme={toggleTheme}
+        onSocialOpen={() => openSocial()}
         pathname={pathname}
         format={format}
         setFormat={setFormat}
@@ -369,6 +391,7 @@ export default function DashboardApp() {
           logout={logout}
           theme={theme}
           toggleTheme={toggleTheme}
+          onSocialOpen={() => openSocial()}
           pathname={pathname}
           format={format}
           setFormat={setFormat}
@@ -474,7 +497,13 @@ export default function DashboardApp() {
       )}
       {pathname === "/tai-khoan" &&
         (user ? (
-          <ProfilePage user={user} setUser={setUser} go={go} logout={logout} />
+          <ProfilePage
+            key={user.id ?? user.email}
+            user={user}
+            setUser={setUser}
+            go={go}
+            logout={logout}
+          />
         ) : (
           <LoginPage
             onLogin={handleLogin}
@@ -482,12 +511,34 @@ export default function DashboardApp() {
             close={() => go("/")}
           />
         ))}
+      {profileId !== null &&
+        (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          profileId,
+        ) ? (
+          <PublicProfilePage
+            id={profileId}
+            viewer={user}
+            go={go}
+            openMessages={(peerId) => openSocial(peerId)}
+          />
+        ) : (
+          <NotFoundPage go={go} />
+        ))}
       {!["/", "/phim", "/yeu-thich", "/lich-su", "/tai-khoan"].includes(
         pathname,
       ) &&
+        !pathname.startsWith("/nguoi-dung/") &&
         !pathname.startsWith("/phim/") &&
         !pathname.startsWith("/xem/") && <NotFoundPage go={go} />}
       <SiteFooter go={go} />
+      {socialOpen && user && (
+        <SocialPanel
+          user={user}
+          initialPeerId={socialPeerId}
+          close={() => setSocialOpen(false)}
+          go={go}
+        />
+      )}
     </div>
   );
 }

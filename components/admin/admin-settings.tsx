@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { apiMode } from "@/lib/config";
 import { Database, Save, Settings, ShieldCheck } from "lucide-react";
 import type { SiteSettings } from "@/lib/admin-data";
 
@@ -12,10 +13,26 @@ export default function AdminSettings({
   save: (settings: SiteSettings) => Promise<void>;
 }) {
   const [form, setForm] = useState(settings);
+  const busy = useRef(false);
+  const [saving, setSaving] = useState(false);
   useEffect(() => setForm(settings), [settings]);
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    void save(form);
+    if (busy.current) return;
+    if (
+      form.maintenance &&
+      !settings.maintenance &&
+      !window.confirm("Bật chế độ bảo trì website?")
+    )
+      return;
+    busy.current = true;
+    setSaving(true);
+    try {
+      await save(form);
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
   };
   return (
     <form className="admin-settings" onSubmit={submit}>
@@ -97,8 +114,10 @@ export default function AdminSettings({
         </label>
         <label className="setting-toggle warning">
           <span>
-            <b>Chế độ bảo trì</b>
-            <small>Đánh dấu hệ thống đang trong thời gian bảo trì.</small>
+            <b>Thông báo bảo trì</b>
+            <small>
+              Hiện thông báo trên website; không chặn người xem hoặc API.
+            </small>
           </span>
           <input
             type="checkbox"
@@ -133,9 +152,16 @@ export default function AdminSettings({
         </label>
       </section>
       <div className="settings-save">
-        <span>Mọi thay đổi được lưu trong trình duyệt hiện tại.</span>
-        <button className="primary-btn">
-          <Save /> Lưu cấu hình
+        <span>
+          {apiMode === "mock"
+            ? "Dữ liệu mẫu chỉ lưu trong trình duyệt này."
+            : "Cấu hình được lưu vào hệ thống, áp dụng cho website."}
+        </span>
+        <button
+          className="primary-btn"
+          disabled={saving || JSON.stringify(form) === JSON.stringify(settings)}
+        >
+          <Save /> {saving ? "Đang lưu…" : "Lưu cấu hình"}
         </button>
       </div>
     </form>

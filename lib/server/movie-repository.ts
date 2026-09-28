@@ -187,9 +187,19 @@ export const movieRepository = {
   },
 
   async save(movie: Movie): Promise<Movie> {
-    const { data, error } = await createSupabaseAdminClient()
+    const db = createSupabaseAdminClient();
+    const { views: _views, ...editable } = toRow(movie);
+    const { data: updated, error: updateError } = await db
       .from("movies")
-      .upsert(toRow(movie), { onConflict: "id" })
+      .update(editable)
+      .eq("id", movie.id)
+      .select("*")
+      .maybeSingle();
+    if (updateError) throwDatabaseError(updateError.message);
+    if (updated) return fromRow(updated as MovieRow);
+    const { data, error } = await db
+      .from("movies")
+      .insert({ ...editable, views: 0 })
       .select("*")
       .single();
 

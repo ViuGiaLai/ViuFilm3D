@@ -1,7 +1,15 @@
 export type Account = {
+  id?: number;
+  publicId?: string;
+  cultivationXp?: number;
+  avatarFrameId?: string;
+  frameGrants?: string[];
   email: string;
   name: string;
   role: "admin" | "user";
+  avatarId?: string;
+  avatarVersion?: string | null;
+  bio?: string;
 };
 
 export type HistoryItem = {

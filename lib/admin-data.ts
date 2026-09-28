@@ -9,6 +9,13 @@ export type Viewer = {
   lastActive: string;
   watches: number;
   hasLogin?: boolean;
+  publicId?: string;
+  cultivationXp?: number;
+  avatarId?: string;
+  avatarVersion?: string | null;
+  avatarFrameId?: string;
+  frameGrants?: string[];
+  bio?: string;
 };
 
 export type SiteSettings = {

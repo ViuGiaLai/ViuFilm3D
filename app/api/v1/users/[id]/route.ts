@@ -26,12 +26,6 @@ export async function PUT(request: Request, context: UserRouteContext) {
     if (viewer.id !== id) {
       return apiProblem("Mã người dùng trên URL và nội dung không khớp.", 400);
     }
-    if (id === 1) {
-      viewer.email = "admin@gmail.com";
-      viewer.role = "admin";
-      viewer.status = "Đang hoạt động";
-    }
-
     return apiData(await adminRepository.saveUser(viewer));
   } catch (error) {
     return apiError(error, "Không thể lưu người dùng.");

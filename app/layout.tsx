@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./cultivation-theme.css";
+import "./theme-colors.css";
+import "./mobile.css";
+import "./admin-support.css";
+import "./admin-navigation.css";
 
 export const metadata: Metadata = {
   title: "ViuFilm3D — Thế giới hoạt hình nguyên bản",

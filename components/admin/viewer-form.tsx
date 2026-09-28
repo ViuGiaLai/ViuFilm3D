@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Save, X } from "lucide-react";
 import type { Viewer } from "@/lib/admin-data";
 import { apiMode } from "@/lib/config";
@@ -9,9 +9,17 @@ type ViewerFormProps = {
   viewer: Viewer | null;
   close: () => void;
   save: (viewer: Viewer) => Promise<void>;
+  support: (viewer: Viewer) => void;
 };
 
-export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
+export default function ViewerForm({
+  viewer,
+  close,
+  save,
+  support,
+}: ViewerFormProps) {
+  const busy = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Viewer>(
     viewer || {
       id: Date.now(),
@@ -25,13 +33,21 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
       watches: 0,
     },
   );
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    void save({
-      ...form,
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
-    });
+    if (busy.current) return;
+    busy.current = true;
+    setSaving(true);
+    try {
+      await save({
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+      });
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
   };
   return (
     <div className="modal-layer">
@@ -41,11 +57,22 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
         </button>
         <p className="mini-label">QUẢN LÝ NGƯỜI DÙNG</p>
         <h2>{viewer ? "Chỉnh sửa tài khoản" : "Thêm người dùng"}</h2>
+        {viewer && (
+          <button
+            type="button"
+            className="secondary-btn"
+            disabled={saving}
+            onClick={() => support(viewer)}
+          >
+            Hỗ trợ avatar, viền & cảnh giới
+          </button>
+        )}
         <label>
           Họ và tên
           <input
             required
             minLength={2}
+            maxLength={100}
             value={form.name}
             onChange={(event) => setForm({ ...form, name: event.target.value })}
           />
@@ -92,7 +119,7 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
         <label>
           Trạng thái
           <select
-            disabled={viewer?.id === 1}
+            disabled={viewer?.role === "admin"}
             value={form.status}
             onChange={(event) =>
               setForm({
@@ -114,8 +141,8 @@ export default function ViewerForm({ viewer, close, save }: ViewerFormProps) {
             </>
           )}
         </p>
-        <button className="primary-btn full">
-          <Save /> Lưu tài khoản
+        <button className="primary-btn full" disabled={saving}>
+          <Save /> {saving ? "Đang lưu…" : "Lưu tài khoản"}
         </button>
       </form>
     </div>

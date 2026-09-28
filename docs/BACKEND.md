@@ -46,6 +46,8 @@ supabase/migrations/20260926003000_add_movie_episodes.sql
 supabase/migrations/20260926004000_add_movie_trailer.sql
 supabase/migrations/20260927000000_add_movie_view_counter.sql
 supabase/migrations/20260928000000_viewer_accounts_and_comments.sql
+supabase/migrations/20260929000000_social_profiles.sql
+supabase/migrations/20260929010000_cultivation_and_public_profiles.sql
 ```
 
 Migration tạo các bảng `movies`, `app_users`, `site_settings`, index, ràng buộc dữ liệu, trigger `updated_at` và Row Level Security:
@@ -53,9 +55,15 @@ Migration tạo các bảng `movies`, `app_users`, `site_settings`, index, ràng
 - `movies`: công khai chỉ được đọc; ghi qua backend.
 - `site_settings`: công khai chỉ được đọc; ghi qua backend.
 - `app_users`: không công khai; chỉ backend dùng secret key được truy cập.
+- `cultivation_awards`: sổ điểm đạo hạnh duy nhất theo người dùng/nguồn/mốc, không cho trình duyệt ghi trực tiếp. Cần chạy migration cảnh giới trước khi chạy phiên bản frontend/backend này; thiếu cột mới sẽ làm các API tài khoản báo lỗi readiness.
 - `movie_view_events`: ghi nhận lượt xem đủ điều kiện, tránh tính trùng trong thời gian ngắn; backend cập nhật `movies.views` bằng hàm `record_movie_view`.
 - `movie_comments`: bình luận công khai, chỉ chủ bình luận hoặc quản trị được xóa; giới hạn 1000 ký tự và tần suất gửi.
 - `viewer_favorites`, `viewer_history`: danh sách yêu thích và lịch sử xem gắn với tài khoản để dùng trên nhiều thiết bị.
+- `app_users.avatar_id`, `app_users.avatar_updated_at`, `app_users.bio`: avatar mẫu/ảnh tải lên và giới thiệu công khai; không lộ email trên hồ sơ người khác.
+- `friend_links`: lời mời và quan hệ bạn bè có xác nhận hai chiều.
+- `user_follows`: theo dõi hồ sơ một chiều, độc lập với việc kết bạn.
+- `direct_messages`: tin nhắn riêng, chỉ API cho hai tài khoản đã kết bạn đọc/ghi; không có truy cập trực tiếp từ trình duyệt tới bảng.
+- `movie_comment_likes` và `movie_comments.parent_id`: thích, phản hồi bình luận; bộ đếm thích cập nhật bằng trigger trong database để không lệch sau khi tải lại.
 
 Sau migration, bật **Authentication → Providers → Email** trong Supabase. Nếu bật xác nhận email, người xem phải mở thư xác nhận trước khi đăng nhập. Cấu hình Site URL của Supabase trỏ về địa chỉ ứng dụng đang sử dụng. Chạy `npm run backend:check` để xác nhận các bảng đã xuất hiện trước khi sử dụng production.
 
@@ -84,6 +92,19 @@ Lệnh nạp phim mẫu, tài khoản mẫu và cấu hình mặc định. Có t
 - `GET/POST /api/v1/movies/:id/comments`, `DELETE /api/v1/comments/:id`: đọc, viết và xóa bình luận.
 - `GET /api/v1/admin/comments`, `PATCH /api/v1/comments/:id`: quản trị xem, ẩn/hiện bình luận. Trang quản trị có mục **Bình luận**.
 - `GET /api/v1/me/library`, `PUT/DELETE /api/v1/me/favorites/:movieId`, `POST/DELETE /api/v1/me/history`, `PATCH /api/v1/me/profile`: dữ liệu người xem đã đăng nhập.
+- `GET /api/v1/users/:id/profile`: hồ sơ công khai và bình luận gần đây, không trả email.
+- `POST /api/v1/me/avatar`, `GET /api/v1/avatars/:id`: tải ảnh JPEG/PNG/WebP tối đa 2 MB lên R2 và hiển thị qua backend. Mỗi tài khoản dùng một key R2 cố định `avatars/:id/current`, tải ảnh mới ghi đè ảnh cũ.
+- `GET /api/v1/community/users`, `POST /api/v1/users/:id/friend`: tìm người dùng và gửi lời mời.
+- `PUT/DELETE /api/v1/users/:id/follow`: theo dõi hoặc bỏ theo dõi hồ sơ.
+- `GET /api/v1/me/social`, `PATCH/DELETE /api/v1/me/friends/:id`: danh sách bạn bè, nhận hoặc hủy lời mời.
+- `GET/POST /api/v1/me/messages/:userId`: đọc và gửi tối đa 50 tin nhắn gần nhất với bạn bè đã chấp nhận.
+- `PUT/DELETE /api/v1/comments/:id/like`: thích hoặc bỏ thích bình luận bằng phiên tài khoản.
+
+### Cập nhật trực tiếp
+
+- Bình luận và tin nhắn vẫn được đọc từ API để áp dụng quyền truy cập và trả dữ liệu đầy đủ. Sau khi lưu thay đổi, backend gửi một tín hiệu không chứa nội dung qua Supabase Realtime Broadcast; trình duyệt nhận tín hiệu rồi tải lại dữ liệu cần thiết, không tải lại cả trang.
+- Kênh bình luận chỉ chứa mã phim. Kênh thông báo cá nhân dùng tên chủ đề khó đoán tạo bằng HMAC trên máy chủ; nội dung tin nhắn riêng không bao giờ được phát qua Broadcast. Khóa `SUPABASE_SECRET_KEY` chỉ ở server, trình duyệt chỉ dùng `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- Khi WebSocket không kết nối hoặc bị gián đoạn, bình luận tự đồng bộ sau tối đa khoảng 45 giây khi tab đang hiển thị; tin nhắn đang mở và thông báo có cơ chế kiểm tra định kỳ. Realtime Inspector trong Supabase là công cụ kiểm tra kết nối, không phải nơi lưu bình luận.
 - `GET /api/v1/status`: trạng thái kết nối API và database, không trả về bí mật.
 - `/api/v1/media/*`: upload, xác nhận, đọc, liệt kê và xóa media trên R2.
 
@@ -151,12 +172,12 @@ Các giá trị trong ví dụ là placeholder. Không đưa khóa thật vào l
 
 ## 8. Readiness và health check
 
-- `GET /api/health` là health check dùng cho Render. Ở production, endpoint chỉ trả `200` khi bảng phim, bộ đếm lượt xem, hồ sơ người xem, bình luận và thư viện cá nhân truy cập được, đồng thời cấu hình đăng nhập admin và R2 đầy đủ. Nếu thiếu, endpoint trả `503` với `status=degraded`; xem `viewCounter` hoặc `viewerFeatures` để biết migration nào còn thiếu.
+- `GET /api/health` là health check dùng cho Render. Ở production, endpoint chỉ trả `200` khi bảng phim, bộ đếm lượt xem, hồ sơ người xem, bình luận, thư viện cá nhân, bạn bè và tin nhắn truy cập được, đồng thời cấu hình đăng nhập admin và R2 đầy đủ. Nếu thiếu, endpoint trả `503` với `status=degraded`; xem `viewCounter`, `viewerFeatures` hoặc `socialFeatures` để biết migration nào còn thiếu.
 - `GET /api/v1/status` trả trạng thái chi tiết nhưng không trả giá trị secret: `database`, `databaseAdmin`, `adminAuth`, `objectStorage` và `ready`.
 
 Nếu `database=unavailable` nhưng URL/key Supabase đã đúng, kiểm tra đã chạy đủ ba migration hay chưa. Nếu `databaseAdmin=not_configured` hoặc `adminAuth=not_configured`, bổ sung các biến server còn thiếu rồi khởi động lại service.
 
-Kiểm tra toàn bộ cấu hình backend và ba bảng mà không in giá trị secret:
+Kiểm tra toàn bộ cấu hình backend và các bảng mà không in giá trị secret:
 
 ```bash
 npm run backend:check

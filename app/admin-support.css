@@ -1,0 +1,386 @@
+.movie-form.admin-support-form {
+  width: min(1160px, calc(100vw - 40px));
+  max-width: none;
+  height: min(880px, calc(100dvh - 48px));
+  max-height: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.admin-support-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 82px 16px 28px;
+  min-height: 64px;
+  border-bottom: 1px solid #d6b67330;
+  background: linear-gradient(110deg, #d6b67308, transparent 55%);
+  flex: none;
+}
+.admin-support-header h2 {
+  font-size: 20px;
+  margin: 0;
+  color: #f2dfb4;
+  text-shadow: 0 0 16px #d6b67336;
+}
+.admin-support-header .mini-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  color: #e7c37e;
+  text-shadow: 0 0 12px #d6b67340;
+}
+.admin-support-header .modal-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 20px;
+}
+.admin-support-form fieldset.admin-support-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px;
+  overscroll-behavior: contain;
+}
+.admin-support-fields,
+.admin-support-collection {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #64708566 transparent;
+  scrollbar-gutter: stable;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.admin-support-fields:focus-visible,
+.admin-support-collection:focus-visible {
+  outline: 2px solid #d6b673;
+  outline-offset: -2px;
+}
+.admin-collection-controls {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  background: var(--panel);
+  margin-top: -18px;
+  padding-top: 18px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.admin-support-form .admin-support-preview {
+  margin: 0 0 20px;
+  padding: 22px;
+  gap: 26px;
+  min-height: 125px;
+}
+.admin-support-preview > .user-avatar {
+  width: 76px;
+  height: 76px;
+  font-size: 36px;
+}
+.admin-support-preview strong {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.admin-support-preview p {
+  margin: 8px 0;
+  color: var(--gold-text);
+}
+.admin-support-preview small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.admin-support-form label {
+  font-size: 12px;
+}
+.admin-support-fields > label {
+  margin-bottom: 16px;
+}
+.admin-support-fields textarea {
+  min-height: 78px;
+}
+.admin-support-collection h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.admin-support-collection .form-hint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.admin-support-form .admin-frame-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.admin-support-form label.admin-frame-option {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 14px;
+  min-height: 88px;
+  padding: 18px 12px;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+}
+.admin-support-form .admin-frame-option .user-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 20px;
+}
+.admin-support-form .admin-frame-option > span:not(.user-avatar) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.admin-support-form .admin-frame-option small {
+  font-size: 10px;
+}
+.admin-support-form .admin-frame-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: #d6b673;
+}
+.admin-support-form .admin-frame-option:has(input:checked) {
+  border-color: #a58b53;
+  background: color-mix(in srgb, #d6b673 9%, var(--panel2));
+}
+.admin-support-form .admin-grant-groups details {
+  padding: 12px 0;
+}
+.admin-support-form .admin-grant-groups summary {
+  font-size: 13px;
+}
+.admin-support-footer {
+  flex: none;
+  padding: 16px 30px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+.admin-support-form .admin-support-footer label {
+  margin: 0;
+}
+.admin-support-footer textarea {
+  min-height: 56px;
+  height: 56px;
+  max-height: 110px;
+  resize: vertical;
+  margin-top: 8px;
+}
+.admin-support-footer-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.admin-support-footer-actions button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+.admin-support-footer .form-error {
+  grid-column: 1/-1;
+  margin: 0;
+}
+.admin-equipped-frame {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 22px;
+  border: 1px solid #a58b5366;
+  background: #d6b6730a;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+.admin-equipped-frame > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.admin-equipped-frame small {
+  color: var(--gold-text);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.admin-equipped-frame strong {
+  font-size: 16px;
+}
+.admin-equipped-frame span:not(.user-avatar) {
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-frame-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0 18px;
+}
+.admin-frame-groups button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: var(--panel2);
+  font-size: 12px;
+}
+.admin-frame-groups button[aria-pressed="true"] {
+  color: #eed6a1;
+  border-color: #a58b53;
+  background: #d6b67315;
+}
+.admin-visual-frame-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.admin-visual-frame {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+.admin-visual-frame.is-equipped {
+  border-color: #d6b673;
+  box-shadow: inset 0 0 0 1px #d6b67333;
+}
+.admin-support-form .admin-frame-equip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 168px;
+  padding: 24px 12px 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+}
+.admin-frame-equip > .user-avatar {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 6px;
+}
+.admin-frame-equip strong {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.admin-frame-equip small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.admin-frame-state {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.is-equipped .admin-frame-state {
+  color: #eed6a1;
+}
+.admin-frame-equip:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.admin-support-form label.admin-frame-grant {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 10px 9px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  cursor: pointer;
+}
+.admin-support-form .admin-frame-grant input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: #d6b673;
+}
+@media (max-width: 1100px) {
+  .admin-visual-frame-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 950px) {
+  .admin-support-form .admin-frame-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-support-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-support-footer-actions {
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 700px) {
+  .movie-form.admin-support-form {
+    width: 100%;
+    height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+  }
+  .admin-support-form fieldset.admin-support-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow-y: auto;
+    padding: 14px;
+    gap: 14px;
+  }
+  .admin-support-fields,
+  .admin-support-collection {
+    min-height: auto;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+  .admin-collection-controls {
+    position: static;
+  }
+  .admin-support-header {
+    padding: 14px 60px 14px 18px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .admin-support-header h2 {
+    font-size: 17px;
+  }
+  .admin-support-footer {
+    padding: 12px 16px 16px;
+    gap: 10px;
+  }
+  .admin-support-footer-actions button {
+    white-space: normal;
+  }
+  .admin-support-footer-actions .primary-btn {
+    flex: 1;
+  }
+  .admin-support-form .admin-support-preview {
+    flex-wrap: nowrap;
+  }
+}

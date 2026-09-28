@@ -161,7 +161,7 @@ export function MovieCard({
 }: MovieCardProps) {
   return (
     <article className="movie-card">
-      <button className="poster-wrap" onClick={() => go(`/phim/${movie.id}`)}>
+      <button className="poster-wrap" onClick={() => go(`/phim/${movie.slug}`)}>
         <MovieArt movie={movie} />
         <span className="card-labels">
           <i>{formatMovieBadge(movie)}</i>
@@ -196,7 +196,7 @@ function Ranking({ movies, go }: { movies: Movie[]; go: Navigate }) {
           {movies.map((movie: Movie, index: number) => (
             <li key={movie.id}>
               <span>{index + 1}</span>
-              <button onClick={() => go(`/phim/${movie.id}`)}>
+              <button onClick={() => go(`/phim/${movie.slug}`)}>
                 <strong>{movie.title}</strong>
                 <small>{formatMovieBadge(movie)}</small>
               </button>

@@ -6,13 +6,20 @@ import {
   ChevronDown,
   LogOut,
   Menu,
+  MessageCircle,
   Moon,
   Search,
+  Settings,
   Sun,
   User,
   X,
 } from "lucide-react";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { socialGateway } from "@/lib/social-gateway";
+import { subscribeToInvalidation } from "@/lib/realtime-client";
+import { apiMode } from "@/lib/config";
+import type { SocialInbox } from "@/lib/social-types";
 import { genres } from "@/lib/movies";
 import type { Dispatch, SetStateAction } from "react";
 import type {
@@ -23,6 +30,7 @@ import type {
 } from "@/components/site/types";
 
 type SiteHeaderProps = HeaderProps & {
+  onSocialOpen: () => void;
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
   mobile: () => void;
@@ -49,6 +57,7 @@ export default function SiteHeader({
   logout,
   theme,
   toggleTheme,
+  onSocialOpen,
   pathname = "/",
   format = "all",
   setFormat,
@@ -62,7 +71,40 @@ export default function SiteHeader({
   setGenre,
 }: SiteHeaderProps) {
   const [genreOpen, setGenreOpen] = useState(false);
+  const [socialInbox, setSocialInbox] = useState<SocialInbox | null>(null);
   const genreDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user?.id || apiMode !== "production") return;
+    let active = true;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void socialGateway.inbox().then(
+        (value) => {
+          if (active) setSocialInbox(value);
+        },
+        () => undefined,
+      );
+    };
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("viufilm3d:social-updated", refresh);
+    const fallback = window.setInterval(refresh, 45_000);
+    return () => {
+      active = false;
+      setSocialInbox(null);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("viufilm3d:social-updated", refresh);
+      window.clearInterval(fallback);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!socialInbox?.realtimeTopic || apiMode !== "production") return;
+    return subscribeToInvalidation(socialInbox.realtimeTopic, () => {
+      window.dispatchEvent(new Event("viufilm3d:social-updated"));
+    });
+  }, [socialInbox?.realtimeTopic]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -139,12 +181,41 @@ export default function SiteHeader({
           {user ? (
             <>
               <button
-                className="user-link"
-                onClick={() =>
-                  go(user.role === "admin" ? "/admin" : "/tai-khoan")
-                }
+                className="social-trigger"
+                onClick={onSocialOpen}
+                title="Bằng hữu và mật thư"
+                aria-label="Mở bằng hữu và mật thư"
               >
-                <User />
+                <MessageCircle />
+                {socialInbox &&
+                  socialInbox.unreadCount + socialInbox.incoming.length > 0 && (
+                    <span className="social-trigger-badge">
+                      {Math.min(
+                        99,
+                        socialInbox.unreadCount + socialInbox.incoming.length,
+                      )}
+                    </span>
+                  )}
+              </button>
+              {user.role === "admin" && (
+                <button
+                  onClick={() => go("/admin")}
+                  title="Trang quản trị"
+                  aria-label="Trang quản trị"
+                >
+                  <Settings />
+                </button>
+              )}
+              <button className="user-link" onClick={() => go("/tai-khoan")}>
+                <UserAvatar
+                  frameId={user.avatarFrameId}
+                  cultivationXp={user.cultivationXp}
+                  avatarId={user.avatarId}
+                  avatarVersion={user.avatarVersion}
+                  userId={user.id}
+                  name={user.name}
+                  size="small"
+                />
                 <span>{user.name.split(" ")[0]}</span>
               </button>
               <button onClick={logout} title="Đăng xuất">
@@ -295,6 +366,7 @@ export function MobileNav({
   logout,
   theme,
   toggleTheme,
+  onSocialOpen,
   pathname = "/",
   format = "all",
   setFormat,
@@ -308,6 +380,7 @@ export function MobileNav({
   setGenre,
 }: HeaderProps & {
   close: () => void;
+  onSocialOpen: () => void;
   format?: MovieFormat;
   setFormat?: Dispatch<SetStateAction<MovieFormat>>;
   statusFilter?: MovieStatusFilter;
@@ -480,12 +553,17 @@ export function MobileNav({
         {user ? (
           <>
             <button
-              onClick={() =>
-                go(user.role === "admin" ? "/admin" : "/tai-khoan")
-              }
+              onClick={() => {
+                close();
+                onSocialOpen();
+              }}
             >
-              Tài khoản
+              Bằng hữu và mật thư
             </button>
+            <button onClick={() => go("/tai-khoan")}>Tài khoản</button>
+            {user.role === "admin" && (
+              <button onClick={() => go("/admin")}>Quản trị</button>
+            )}
             <button
               onClick={() => {
                 logout();

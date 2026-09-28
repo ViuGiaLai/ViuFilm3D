@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Pencil,
   Search,
@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import type { Viewer } from "@/lib/admin-data";
 import type { EditViewer, PatchViewer } from "@/components/admin/types";
+import { getCultivation } from "@/lib/cultivation";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 type AdminUsersProps = {
   viewers: Viewer[];
@@ -28,7 +30,21 @@ export default function AdminUsers({
 }: AdminUsersProps) {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("Tất cả");
-  const list = viewers.filter((viewer: Viewer) => {
+  const [page, setPage] = useState(1);
+  const busy = useRef(new Set<number>());
+  const [pending, setPending] = useState<number[]>([]);
+  const act = async (id: number, action: () => Promise<void>) => {
+    if (busy.current.has(id)) return;
+    busy.current.add(id);
+    setPending([...busy.current]);
+    try {
+      await action();
+    } finally {
+      busy.current.delete(id);
+      setPending([...busy.current]);
+    }
+  };
+  const filtered = viewers.filter((viewer: Viewer) => {
     const matched = `${viewer.name} ${viewer.email}`
       .toLowerCase()
       .includes(keyword.toLowerCase());
@@ -39,6 +55,9 @@ export default function AdminUsers({
         viewer.plan === status)
     );
   });
+  const pages = Math.max(1, Math.ceil(filtered.length / 20));
+  const currentPage = Math.min(page, pages);
+  const list = filtered.slice((currentPage - 1) * 20, currentPage * 20);
   return (
     <section className="admin-users">
       <div className="admin-summary-strip">
@@ -76,13 +95,19 @@ export default function AdminUsers({
           <Search />
           <input
             value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
+            onChange={(event) => {
+              setKeyword(event.target.value);
+              setPage(1);
+            }}
             placeholder="Tìm tên hoặc email..."
           />
         </div>
         <select
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
+          onChange={(event) => {
+            setStatus(event.target.value);
+            setPage(1);
+          }}
         >
           <option>Tất cả</option>
           <option>Đang hoạt động</option>
@@ -101,6 +126,7 @@ export default function AdminUsers({
               <th>Trạng thái</th>
               <th>Ngày tham gia</th>
               <th>Hoạt động</th>
+              <th>Cảnh giới</th>
               <th />
             </tr>
           </thead>
@@ -108,13 +134,14 @@ export default function AdminUsers({
             {list.map((viewer: Viewer) => (
               <tr key={viewer.id}>
                 <td>
-                  <i className="user-initial">
-                    {viewer.name
-                      .split(" ")
-                      .map((part) => part[0])
-                      .slice(-2)
-                      .join("")}
-                  </i>
+                  <UserAvatar
+                    name={viewer.name}
+                    userId={viewer.id}
+                    avatarId={viewer.avatarId}
+                    avatarVersion={viewer.avatarVersion}
+                    frameId={viewer.avatarFrameId}
+                    cultivationXp={viewer.cultivationXp}
+                  />
                   <span>
                     <b>{viewer.name}</b>
                     <small>{viewer.email}</small>
@@ -136,10 +163,13 @@ export default function AdminUsers({
                 <td>
                   <button
                     className={`plan-badge ${viewer.plan === "VIP" ? "vip" : ""}`}
+                    disabled={pending.includes(viewer.id)}
                     onClick={() =>
-                      patch(viewer.id, {
-                        plan: viewer.plan === "VIP" ? "Miễn phí" : "VIP",
-                      })
+                      void act(viewer.id, () =>
+                        patch(viewer.id, {
+                          plan: viewer.plan === "VIP" ? "Miễn phí" : "VIP",
+                        }),
+                      )
                     }
                   >
                     {viewer.plan}
@@ -148,14 +178,18 @@ export default function AdminUsers({
                 <td>
                   <button
                     className={`account-status ${viewer.status === "Đã khóa" ? "blocked" : ""}`}
-                    disabled={viewer.role === "admin"}
+                    disabled={
+                      viewer.role === "admin" || pending.includes(viewer.id)
+                    }
                     onClick={() =>
-                      patch(viewer.id, {
-                        status:
-                          viewer.status === "Đang hoạt động"
-                            ? "Đã khóa"
-                            : "Đang hoạt động",
-                      })
+                      void act(viewer.id, () =>
+                        patch(viewer.id, {
+                          status:
+                            viewer.status === "Đang hoạt động"
+                              ? "Đã khóa"
+                              : "Đang hoạt động",
+                        }),
+                      )
                     }
                   >
                     <i />
@@ -170,18 +204,37 @@ export default function AdminUsers({
                   </small>
                 </td>
                 <td>
-                  <button onClick={() => edit(viewer)}>
+                  <b>{getCultivation(viewer.cultivationXp ?? 0).title}</b>
+                  <small>{viewer.cultivationXp ?? 0} đạo hạnh</small>
+                  {viewer.publicId && (
+                    <a
+                      href={`/nguoi-dung/${viewer.publicId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Hồ sơ công khai
+                    </a>
+                  )}
+                </td>
+                <td>
+                  <button
+                    title="Chỉnh sửa tài khoản"
+                    disabled={pending.includes(viewer.id)}
+                    onClick={() => edit(viewer)}
+                  >
                     <Pencil />
                   </button>
                   <button
                     className="delete-icon"
-                    disabled={viewer.role === "admin"}
+                    disabled={
+                      viewer.role === "admin" || pending.includes(viewer.id)
+                    }
                     title={
                       viewer.role === "admin"
                         ? "Không thể xóa tài khoản quản trị viên"
                         : "Xóa tài khoản này"
                     }
-                    onClick={() => remove(viewer.id)}
+                    onClick={() => void act(viewer.id, () => remove(viewer.id))}
                   >
                     <Trash2 />
                   </button>
@@ -198,6 +251,29 @@ export default function AdminUsers({
           </div>
         )}
       </div>
+      <div className="admin-pagination">
+        <span>
+          {filtered.length} tài khoản · Trang {currentPage}/{pages}
+        </span>
+        <div>
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Trước
+          </button>
+          <button
+            disabled={currentPage === pages}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Sau
+          </button>
+        </div>
+      </div>
+      <p className="form-hint">
+        Khóa tài khoản ngăn các thao tác cần đăng nhập. Gói VIP là nhãn quản lý,
+        không cấp quyền admin hay tự bật tính năng trả phí.
+      </p>
     </section>
   );
 }

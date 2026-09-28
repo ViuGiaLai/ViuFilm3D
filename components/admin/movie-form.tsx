@@ -6,6 +6,7 @@ import { toSlug } from "@/lib/format";
 import { genres, movieSeed, type EpisodeItem, type Movie } from "@/lib/movies";
 import MediaUploader from "@/components/admin/media-uploader";
 import { mediaGateway } from "@/lib/media-gateway";
+import { apiMode } from "@/lib/config";
 import {
   extractDominantColors,
   extractVideoMetadata,
@@ -949,6 +950,8 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
             <input
               type="number"
               min="0"
+              disabled={apiMode === "production"}
+              title="Lượt xem thật được hệ thống tự ghi nhận, không chỉnh sửa thủ công."
               value={form.views}
               onChange={(event) =>
                 setForm({ ...form, views: Number(event.target.value) })

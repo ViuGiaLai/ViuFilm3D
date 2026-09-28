@@ -17,6 +17,7 @@ export type BackendStatus = {
   database: ServiceState;
   viewCounter: ServiceState;
   viewerFeatures: ServiceState;
+  socialFeatures: ServiceState;
   databaseAdmin: "configured" | "not_configured";
   adminAuth: "configured" | "not_configured";
   objectStorage: "configured" | "not_configured";
@@ -27,6 +28,7 @@ export async function getBackendStatus(): Promise<BackendStatus> {
   let database: ServiceState = "not_configured";
   let viewCounter: ServiceState = "not_configured";
   let viewerFeatures: ServiceState = "not_configured";
+  let socialFeatures: ServiceState = "not_configured";
 
   if (isSupabaseReadConfigured()) {
     try {
@@ -56,16 +58,37 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     try {
       const db = createSupabaseAdminClient();
       const checks = await Promise.all([
-        db.from("app_users").select("auth_user_id").limit(1),
-        db.from("movie_comments").select("id").limit(1),
+        db
+          .from("app_users")
+          .select(
+            "auth_user_id,public_id,cultivation_xp,avatar_frame_id,avatar_id,avatar_updated_at,bio",
+          )
+          .limit(1),
+        db.from("movie_comments").select("id,parent_id,like_count").limit(1),
+        db.from("movie_comment_likes").select("comment_id").limit(1),
         db.from("viewer_favorites").select("user_id").limit(1),
         db.from("viewer_history").select("user_id").limit(1),
+        db.from("cultivation_awards").select("user_id").limit(1),
       ]);
       viewerFeatures = checks.every((check) => !check.error)
         ? "connected"
         : "unavailable";
     } catch {
       viewerFeatures = "unavailable";
+    }
+
+    try {
+      const db = createSupabaseAdminClient();
+      const checks = await Promise.all([
+        db.from("friend_links").select("id").limit(1),
+        db.from("direct_messages").select("id").limit(1),
+        db.from("user_follows").select("follower_id").limit(1),
+      ]);
+      socialFeatures = checks.every((check) => !check.error)
+        ? "connected"
+        : "unavailable";
+    } catch {
+      socialFeatures = "unavailable";
     }
   }
 
@@ -80,6 +103,7 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     database,
     viewCounter,
     viewerFeatures,
+    socialFeatures,
     databaseAdmin,
     adminAuth,
     objectStorage,
@@ -87,6 +111,7 @@ export async function getBackendStatus(): Promise<BackendStatus> {
       database === "connected" &&
       viewCounter === "connected" &&
       viewerFeatures === "connected" &&
+      socialFeatures === "connected" &&
       databaseAdmin === "configured" &&
       adminAuth === "configured" &&
       objectStorage === "configured",

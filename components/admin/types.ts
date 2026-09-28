@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { SiteSettings, Viewer } from "@/lib/admin-data";
 import type { Movie } from "@/lib/movies";
+import type { Account } from "@/lib/app-types";
 
 export type Navigate = (path: string) => void;
 export type EditMovie = Dispatch<SetStateAction<Movie | null | undefined>>;
@@ -12,6 +13,7 @@ export type PatchViewer = (
 ) => Promise<void>;
 
 export type AdminPanelProps = {
+  account: Account;
   movies: Movie[];
   setMovies: Dispatch<SetStateAction<Movie[]>>;
   logout: () => void;

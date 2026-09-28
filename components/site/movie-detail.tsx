@@ -139,6 +139,33 @@ export default function MovieDetail({
               <p className="detail-desc">{movie.description}</p>
             )}
           </div>
+          <aside className="movie-info" aria-label="Thông tin phim">
+            <h3>Thông tin phim</h3>
+            <p>
+              <span>Trạng thái</span>
+              <b>{movie.status}</b>
+            </p>
+            <p>
+              <span>Hãng phim</span>
+              <b>{movie.studio}</b>
+            </p>
+            <p>
+              <span>Đạo diễn</span>
+              <b>{movie.director}</b>
+            </p>
+            <p>
+              <span>Định dạng</span>
+              <b>
+                {movie.totalEpisodes <= 1
+                  ? "Phim lẻ (Trọn bộ)"
+                  : `${movie.totalEpisodes} tập`}
+              </b>
+            </p>
+            <p>
+              <span>Ngôn ngữ</span>
+              <b>Thuyết minh</b>
+            </p>
+          </aside>
         </div>
       </section>
       <section className="detail-body">
@@ -225,33 +252,6 @@ export default function MovieDetail({
             )}
           </div>
         </div>
-        <aside className="movie-info">
-          <h3>Thông tin phim</h3>
-          <p>
-            <span>Trạng thái</span>
-            <b>{movie.status}</b>
-          </p>
-          <p>
-            <span>Hãng phim</span>
-            <b>{movie.studio}</b>
-          </p>
-          <p>
-            <span>Đạo diễn</span>
-            <b>{movie.director}</b>
-          </p>
-          <p>
-            <span>Định dạng</span>
-            <b>
-              {movie.totalEpisodes <= 1
-                ? "Phim lẻ (Trọn bộ)"
-                : `${movie.totalEpisodes} tập`}
-            </b>
-          </p>
-          <p>
-            <span>Ngôn ngữ</span>
-            <b>Thuyết minh</b>
-          </p>
-        </aside>
       </section>
       <MovieComments movieId={movie.id} user={user} go={go} />
     </main>

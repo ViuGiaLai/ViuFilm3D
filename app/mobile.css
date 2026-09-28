@@ -1,0 +1,252 @@
+/* Shared narrow-screen overrides; imported after component/theme styles. */
+@media (max-width: 700px) {
+  .public-profile,
+  .account-page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .public-profile-cover {
+    height: 155px;
+  }
+  .public-profile-cover > b {
+    bottom: 24px;
+    font-size: 16px;
+  }
+  .public-profile-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 28px 20px 22px;
+    text-align: center;
+  }
+  .public-profile-summary > .user-avatar {
+    justify-self: center;
+    margin: -60px 0 8px;
+    width: 82px;
+    height: 82px;
+  }
+  .public-profile-summary > div:nth-child(2) {
+    min-width: 0;
+    width: 100%;
+    padding-top: 0;
+  }
+  .public-profile-summary h1 {
+    font-size: 27px;
+    line-height: 1.25;
+    margin-top: 8px;
+  }
+  .public-profile-actions {
+    display: flex;
+    width: 100%;
+    margin: 4px 0 0;
+    gap: 10px;
+  }
+  .public-profile-actions button {
+    flex: 1 1 120px;
+    white-space: normal;
+    min-height: 44px;
+  }
+  .public-profile-card,
+  .cultivation-progress {
+    padding: 18px;
+  }
+  .public-profile-grid {
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .cultivation-progress-top {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .cultivation-progress p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .public-profile-comment {
+    text-align: left;
+    padding: 16px 0;
+  }
+  .account-identity {
+    grid-template-columns: minmax(0, 1fr);
+    text-align: center;
+    padding: 0 20px 22px;
+    gap: 18px;
+  }
+  .account-identity > .user-avatar {
+    justify-self: center;
+    width: 76px;
+    height: 76px;
+    margin: -30px 0 8px;
+  }
+  .account-identity-badges {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .account-identity-copy {
+    min-width: 0;
+  }
+  .account-identity-copy h2 {
+    overflow-wrap: anywhere;
+    font-size: 25px;
+  }
+  .account-public-link {
+    grid-column: 1;
+    justify-self: stretch;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .account-fields-row,
+  .form-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .account-page .frame-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .account-page .frame-picker-grid button {
+    min-width: 0;
+    padding: 20px 8px 12px;
+    min-height: 112px;
+  }
+  .account-page .frame-picker-grid button span {
+    overflow-wrap: anywhere;
+  }
+  .account-save-bar {
+    position: static;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .account-save-bar button {
+    min-height: 44px;
+  }
+  .account-page input,
+  .account-page textarea,
+  .login-form input,
+  .social-panel input,
+  .social-panel textarea,
+  .movie-comment-form textarea {
+    font-size: 16px;
+  }
+  .movie-comment-form {
+    gap: 16px;
+    padding: 18px 14px;
+  }
+  .movie-comment-form > .user-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+  }
+  .movie-comment-compose {
+    min-width: 0;
+  }
+  .movie-comment-form textarea {
+    min-height: 100px;
+  }
+  .movie-comment-form-footer {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .movie-comment-form-footer button {
+    min-height: 44px;
+  }
+  .movie-comment-actions button {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+  .movie-comment-meta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .comment-user-card {
+    left: 12px !important;
+    top: auto !important;
+    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    width: calc(100vw - 24px);
+    max-height: min(560px, calc(100dvh - 100px - env(safe-area-inset-bottom)));
+    transform: none;
+    overscroll-behavior: contain;
+  }
+  .comment-user-card-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .comment-user-card-link {
+    min-height: 44px;
+  }
+  .social-panel {
+    padding-top: env(safe-area-inset-top);
+  }
+  .social-panel button {
+    min-height: 44px;
+  }
+  .social-panel-head {
+    flex-shrink: 0;
+  }
+  .social-messages {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-menu,
+  .ha-search > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ha-search {
+    min-width: 0;
+  }
+  .modal-layer {
+    padding: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+  .movie-form {
+    max-height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+    padding: 24px 18px;
+    overscroll-behavior: contain;
+  }
+  .movie-form input,
+  .movie-form textarea,
+  .movie-form select {
+    font-size: 16px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .movie-form button {
+    min-height: 44px;
+  }
+  .admin-support-preview {
+    gap: 24px;
+    padding: 22px 16px;
+    flex-wrap: wrap;
+  }
+  .admin-frame-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-community {
+    padding: 16px;
+  }
+  .admin-world-list article {
+    padding: 16px;
+  }
+  .admin-community .admin-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .admin-community .admin-toolbar input {
+    width: 100%;
+    min-width: 0;
+  }
+  .admin-community button {
+    min-height: 44px;
+  }
+}
+@media (max-width: 360px) {
+  .account-page .avatar-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .public-profile-summary h1 {
+    font-size: 24px;
+  }
+  .ha-header-inner {
+    gap: 6px;
+  }
+}

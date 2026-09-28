@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getViewerIdentity } from "@/lib/server/viewer-session";
 import { hasAdminSession } from "@/lib/server/admin-session";
 import { apiData, apiError, apiProblem } from "@/lib/server/api-response";
+import { notifyComments } from "@/lib/server/realtime-notify";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -20,13 +21,14 @@ export async function DELETE(_request: Request, context: Context) {
       .delete()
       .eq("id", id);
     if (!admin) query = query.eq("user_id", viewer!.id);
-    const { data, error } = await query.select("id");
+    const { data, error } = await query.select("id,movie_id");
     if (error) throw error;
     if (!data?.length)
       return apiProblem(
         "Không tìm thấy bình luận hoặc bạn không có quyền xóa.",
         404,
       );
+    await notifyComments(Number(data[0].movie_id));
     return apiData({ deleted: true });
   } catch (error) {
     return apiError(error, "Không thể xóa bình luận.");
@@ -50,10 +52,11 @@ export async function PATCH(request: Request, context: Context) {
       .from("movie_comments")
       .update({ status: body.status })
       .eq("id", id)
-      .select("id,status")
+      .select("id,movie_id,status")
       .maybeSingle();
     if (error) throw error;
     if (!data) return apiProblem("Không tìm thấy bình luận.", 404);
+    await notifyComments(Number(data.movie_id));
     return apiData(data);
   } catch (error) {
     return apiError(error, "Không thể cập nhật bình luận.");

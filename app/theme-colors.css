@@ -1,0 +1,514 @@
+/* Theme contract: surfaces follow the mode; artwork and video keep their own contrast. */
+:root {
+  --fg: var(--text);
+  --brand: var(--accent);
+  --success-text: #79dfb5;
+  --danger-text: #ff9aa7;
+  --gold-text: #dec28b;
+  --button-bg: #c13e29;
+  --input-bg: #202020;
+  --input-line: #626262;
+}
+html[data-mode="light"] {
+  --accent: #be3c27;
+  --red: #b4233f;
+  --muted: #526176;
+  --line: #d5dce5;
+  --success-text: #16684b;
+  --danger-text: #b4233f;
+  --gold-text: #76551f;
+  --input-bg: #ffffff;
+  --input-line: #8795a8;
+}
+
+.login-art {
+  /* This decorative island stays dark in both modes. */
+  color: #f4f6fb;
+  --text: #f4f6fb;
+  --muted: #bdc7d7;
+  --accent: #ff927b;
+}
+.login-art > div > span,
+.login-art .ha-logo small {
+  color: #bdc7d7;
+}
+.login-page input {
+  background: var(--input-bg);
+  color: var(--text);
+  border-color: var(--input-line);
+  caret-color: var(--text);
+  color-scheme: inherit;
+}
+.login-page input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+:where(.cinema-app, .social-panel) :where(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.login-page form > small {
+  color: var(--muted);
+}
+.form-notice {
+  color: var(--success-text);
+}
+.form-error,
+.social-error {
+  color: var(--danger-text);
+}
+.primary-btn,
+.side-note button,
+.genre-pills button:is(:hover, .active),
+.episode-grid button:is(:hover, .active) {
+  background: var(--button-bg);
+  border-color: var(--button-bg);
+  color: #fff;
+}
+.detail-inner h2,
+.movie-info p span,
+.detail-meta,
+.detail-desc {
+  color: var(--muted);
+}
+.detail-inner .tag-row b {
+  background: var(--panel2);
+  border-color: var(--line);
+  color: var(--text);
+}
+.comment-user-card {
+  position: fixed;
+  z-index: 170;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-color: var(--line);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.comment-user-card-body > .user-avatar {
+  border-color: var(--panel);
+}
+.comment-user-card-body > strong {
+  color: var(--text);
+}
+.comment-user-card-body > strong {
+  overflow-wrap: anywhere;
+}
+.comment-user-card-body > .user-avatar {
+  width: 78px;
+  height: 78px;
+  font-size: 40px;
+}
+.comment-user-card-body p {
+  color: var(--muted);
+}
+.comment-user-card-body small {
+  color: var(--gold-text);
+}
+.comment-user-card-link {
+  color: var(--text);
+  background: var(--panel2);
+  border-color: var(--line);
+}
+.movie-comments-heading-icon,
+.movie-comment-actions button:is(:hover, .liked),
+.movie-comment-cancel-reply {
+  color: var(--success-text);
+}
+.account-heading > span,
+.account-motion-control[aria-pressed="true"],
+.account-shortcuts button:hover,
+.account-form-section h3 svg {
+  color: var(--gold-text);
+}
+.account-shortcuts .account-logout,
+.outline-danger {
+  color: var(--danger-text);
+}
+.empty-state,
+.empty-state h2 {
+  color: var(--muted);
+}
+.progress {
+  background: var(--panel2);
+}
+.ha-footer b {
+  color: var(--text);
+}
+.ha-footer button,
+.ha-footer span,
+.ha-footer > div:first-child p {
+  color: var(--muted);
+}
+.mobile-menu {
+  color: var(--text);
+}
+.ha-loading {
+  background: radial-gradient(circle at 50% 40%, var(--panel2), var(--bg));
+}
+.genre-dropdown-menu {
+  box-shadow: var(--shadow);
+}
+.player-empty-episode {
+  --fg: #f4f6fb;
+  --muted: #b0bbcd;
+  color: var(--muted);
+}
+
+html[data-mode="light"] .ha-search input::placeholder {
+  color: var(--muted) !important;
+}
+html[data-mode="light"] .social-panel {
+  --accent: #76551f;
+}
+html[data-mode="light"] .social-world-icon {
+  color: #76551f;
+}
+html[data-mode="light"] .social-compose button,
+html[data-mode="light"] .social-tabs b {
+  color: #fff;
+}
+html[data-mode="light"] .social-overlay {
+  background: #172b464d;
+}
+html[data-mode="light"] .social-panel {
+  box-shadow: 0 18px 60px #172b4633;
+}
+html[data-mode="light"] .account-privacy svg {
+  color: #286b53;
+}
+html[data-mode="light"] .upcoming-placeholder h3 {
+  color: #6944a6;
+}
+html[data-mode="light"] .upcoming-placeholder p {
+  color: var(--muted);
+}
+html[data-mode="light"] .ep-pill-trailer:not(.active) {
+  color: #6944a6;
+}
+html[data-mode="light"] .demo-btn {
+  color: var(--text);
+}
+html[data-mode="light"] .demo-btn:hover {
+  background: var(--panel2);
+}
+html[data-mode="light"] .demo-btn.admin {
+  color: #76551f;
+}
+html[data-mode="light"] .filter-reset-btn {
+  color: var(--danger-text);
+}
+
+/* The administration console has no mode switch; keep its dark surfaces and
+   inherited tokens coherent even after visiting a light public page. */
+.admin-layout {
+  --bg: #080b11;
+  --panel: #111722;
+  --panel2: #151c28;
+  --text: #f4f6fb;
+  --muted: #a1adbf;
+  --line: #303b4d;
+  --accent: #f5a524;
+  --red: #ff9aa7;
+  --success-text: #79dfb5;
+  --danger-text: #ff9aa7;
+  color: var(--text);
+  color-scheme: dark;
+}
+
+.avatar-frame-media {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.user-avatar .avatar-frame-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+.admin-community {
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 18px;
+}
+.admin-community h2 {
+  margin: 28px 0 16px;
+}
+.admin-frame-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.admin-frame-option {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  border-radius: 12px;
+  min-width: 0;
+}
+.admin-frame-option small,
+.admin-world-list small {
+  display: block;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.admin-frame-option input {
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+}
+.admin-support-preview {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 24px;
+  margin: 16px 0;
+  background: var(--panel2);
+  border-radius: 14px;
+}
+.admin-support-form {
+  max-width: 850px;
+}
+.admin-support-form fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.admin-grant-groups details {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.admin-grant-groups summary {
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.admin-world-list article {
+  padding: 22px;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+.admin-world-list header {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.admin-world-list p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin-world-list pre {
+  overflow: auto;
+  max-height: 280px;
+}
+.admin-world-list button,
+.admin-refresh {
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  margin: 6px;
+}
+.admin-community input,
+.admin-community select,
+.admin-community textarea {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 100%;
+}
+.admin-world-list textarea {
+  display: block;
+  width: 100%;
+}
+.admin-support-select {
+  display: grid;
+  gap: 12px;
+  max-width: 600px;
+}
+
+/* Quiet scenery keeps the identity, realm and actions as the focal points. */
+.public-profile-hero {
+  border-color: color-mix(in srgb, var(--gold-text) 25%, var(--line));
+  box-shadow: 0 18px 48px #0002;
+}
+.public-profile-cover {
+  position: relative;
+  overflow: hidden;
+  height: clamp(170px, 18vw, 220px);
+  background:
+    radial-gradient(ellipse at 76% 30%, #c8a45d26, transparent 32%),
+    radial-gradient(ellipse at 28% 80%, #5b9b9620, transparent 50%),
+    linear-gradient(120deg, #0a2029, #122d35 55%, #202334);
+}
+.public-profile-cover::before,
+.public-profile-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.public-profile-cover::before {
+  top: 25%;
+  background: linear-gradient(180deg, #64858c2e, #081820);
+  clip-path: polygon(
+    0 100%,
+    0 65%,
+    8% 72%,
+    20% 20%,
+    30% 66%,
+    39% 43%,
+    49% 80%,
+    64% 18%,
+    74% 62%,
+    86% 5%,
+    100% 59%,
+    100% 100%
+  );
+}
+.public-profile-cover::after {
+  background:
+    repeating-radial-gradient(
+      circle at 82% 35%,
+      transparent 0 43px,
+      #d9b6710d 44px 45px
+    ),
+    linear-gradient(0deg, #091921cc, transparent 65%);
+}
+.public-profile-cover > span {
+  position: absolute;
+  top: 30px;
+  left: 36px;
+  z-index: 1;
+  color: #e6d6b4;
+  font-size: 11px;
+  letter-spacing: 3px;
+}
+.public-profile-cover > span i {
+  padding: 0 8px;
+  font-style: normal;
+  opacity: 0.5;
+}
+.public-profile-cover > b {
+  position: absolute;
+  bottom: 28px;
+  right: 36px;
+  z-index: 1;
+  font-family: Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: #c2d5d577;
+}
+.public-profile-summary {
+  position: relative;
+  align-items: center;
+  gap: 56px;
+  padding: 30px 42px 34px;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--panel) 94%, #a99154),
+    var(--panel) 65%
+  );
+}
+.public-profile-summary > .user-avatar {
+  margin-top: -36px;
+  margin-left: 14px;
+}
+.public-profile-summary > div:nth-child(2) {
+  min-width: 0;
+}
+.public-profile-summary h1 {
+  font-size: clamp(26px, 3vw, 38px);
+  margin: 10px 0 12px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.6px;
+}
+.public-profile-summary .mini-label {
+  color: var(--gold-text);
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+.public-profile-summary p {
+  margin-top: 12px;
+}
+.public-profile-actions button:not(.secondary) {
+  color: #241b0d;
+  background: linear-gradient(120deg, #e1c388, #c6a566);
+  border: 1px solid #bda068;
+  box-shadow: 0 4px 14px #b48b3820;
+}
+.public-profile > .cultivation-progress {
+  border-color: color-mix(in srgb, var(--gold-text) 25%, var(--line));
+  background:
+    radial-gradient(
+      ellipse at 100% 0,
+      color-mix(in srgb, var(--gold-text) 8%, transparent),
+      transparent 55%
+    ),
+    var(--panel);
+}
+.public-profile .cultivation-progress-top > span {
+  color: var(--gold-text);
+  letter-spacing: 0.3px;
+}
+.public-profile .cultivation-progress-track > span {
+  box-shadow: 0 0 12px #d8b66d24;
+}
+.public-profile-card h2 {
+  font-size: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.public-profile-stats span {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.public-profile-comment strong {
+  color: var(--gold-text);
+}
+.login-form input:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  box-shadow: 0 0 0 1000px var(--input-bg) inset;
+}
+@media (max-width: 700px) {
+  .public-profile-summary {
+    gap: 24px;
+    padding: 28px 26px;
+    flex-wrap: wrap;
+  }
+  .public-profile-summary > .user-avatar {
+    margin: -42px 12px 8px 6px;
+    width: 82px;
+    height: 82px;
+  }
+  .public-profile-summary > div:nth-child(2) {
+    flex: 1;
+  }
+  .public-profile-actions {
+    width: 100%;
+    margin: 12px 0 0;
+  }
+  .public-profile-cover > b {
+    font-size: 18px;
+    right: 22px;
+  }
+  .public-profile-cover > span {
+    left: 24px;
+  }
+}

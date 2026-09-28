@@ -14,7 +14,12 @@ import {
   Settings,
   UserPlus,
   Users,
+  Sparkles,
+  Globe2,
+  ScrollText,
+  ShieldCheck,
 } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
 import { adminGateway } from "@/lib/admin-gateway";
 import { viewerSeed, type SiteSettings, type Viewer } from "@/lib/admin-data";
@@ -30,6 +35,8 @@ import AdminUsers from "@/components/admin/admin-users";
 import AdminComments from "@/components/admin/admin-comments";
 import MovieForm from "@/components/admin/movie-form";
 import ViewerForm from "@/components/admin/viewer-form";
+import AdminCommunity from "@/components/admin/admin-community";
+import SupportProfileForm from "@/components/admin/support-profile-form";
 import type { AdminPanelProps } from "@/components/admin/types";
 
 type AdminNotice = {
@@ -38,6 +45,7 @@ type AdminNotice = {
 };
 
 export default function AdminPanel({
+  account,
   movies,
   setMovies,
   logout,
@@ -46,23 +54,91 @@ export default function AdminPanel({
   settings,
   setSettings,
 }: AdminPanelProps) {
-  const section = pathname.includes("/admin/phim")
-    ? "movies"
-    : pathname.includes("/admin/lich-chieu")
-      ? "schedule"
-      : pathname.includes("/admin/binh-luan")
-        ? "comments"
-        : pathname.includes("/admin/nguoi-dung")
-          ? "users"
-          : pathname.includes("/admin/cai-dat")
-            ? "settings"
-            : "dashboard";
+  const section = pathname.includes("/admin/vien-trang-tri")
+    ? "frames"
+    : pathname.includes("/admin/the-gioi")
+      ? "world"
+      : pathname.includes("/admin/nhat-ky")
+        ? "audit"
+        : pathname.includes("/admin/phim")
+          ? "movies"
+          : pathname.includes("/admin/lich-chieu")
+            ? "schedule"
+            : pathname.includes("/admin/binh-luan")
+              ? "comments"
+              : pathname.includes("/admin/nguoi-dung")
+                ? "users"
+                : pathname.includes("/admin/cai-dat")
+                  ? "settings"
+                  : "dashboard";
   const [editing, setEditing] = useState<Movie | null | undefined>(undefined);
   const [editingViewer, setEditingViewer] = useState<Viewer | null | undefined>(
     undefined,
   );
-  const [viewers, setViewers] = useState<Viewer[]>(viewerSeed);
+  const [viewers, setViewers] = useState<Viewer[]>(
+    apiMode === "mock" ? viewerSeed : [],
+  );
   const [notice, setNotice] = useState<AdminNotice | null>(null);
+  const [supporting, setSupporting] = useState<Viewer | null>(null);
+  const identity = viewers.find(
+    (viewer) =>
+      viewer.role === "admin" &&
+      (account.id ? viewer.id === account.id : viewer.email === account.email),
+  );
+  const navigation = [
+    {
+      key: "dashboard",
+      url: "/admin",
+      label: "Tổng quan",
+      icon: LayoutDashboard,
+      group: "ĐIỀU HÀNH",
+    },
+    {
+      key: "movies",
+      url: "/admin/phim",
+      label: "Kho phim",
+      icon: Clapperboard,
+    },
+    {
+      key: "schedule",
+      url: "/admin/lich-chieu",
+      label: "Lịch chiếu",
+      icon: CalendarClock,
+    },
+    {
+      key: "users",
+      url: "/admin/nguoi-dung",
+      label: "Người dùng",
+      icon: Users,
+      group: "CỘNG ĐỒNG",
+    },
+    {
+      key: "comments",
+      url: "/admin/binh-luan",
+      label: "Bình luận",
+      icon: MessageCircle,
+    },
+    {
+      key: "frames",
+      url: "/admin/vien-trang-tri",
+      label: "Viền & cảnh giới",
+      icon: Sparkles,
+    },
+    { key: "world", url: "/admin/the-gioi", label: "Thế Giới", icon: Globe2 },
+    {
+      key: "audit",
+      url: "/admin/nhat-ky",
+      label: "Nhật ký hỗ trợ",
+      icon: ScrollText,
+    },
+    {
+      key: "settings",
+      url: "/admin/cai-dat",
+      label: "Cài đặt",
+      icon: Settings,
+      group: "HỆ THỐNG",
+    },
+  ];
 
   useEffect(() => {
     let active = true;
@@ -174,15 +250,7 @@ export default function AdminPanel({
     }
   };
   const saveViewer = async (viewer: Viewer) => {
-    const normalized =
-      viewer.id === 1
-        ? {
-            ...viewer,
-            email: "admin@gmail.com",
-            role: "admin" as const,
-            status: "Đang hoạt động" as const,
-          }
-        : viewer;
+    const normalized = viewer;
     const duplicateEmail = viewers.some(
       (item) => item.email === normalized.email && item.id !== normalized.id,
     );
@@ -222,7 +290,12 @@ export default function AdminPanel({
       notify("Không thể xóa tài khoản quản trị chính");
       return;
     }
-    if (!confirm(`Xóa tài khoản ${target.email}?`)) return;
+    if (
+      !confirm(
+        `Xóa vĩnh viễn tài khoản ${target.email} cùng dữ liệu liên quan? Nên khóa tài khoản nếu chỉ muốn ngăn truy cập.`,
+      )
+    )
+      return;
     try {
       await adminGateway.removeViewer(id);
       setViewers((items) => items.filter((viewer) => viewer.id !== id));
@@ -247,6 +320,9 @@ export default function AdminPanel({
     users: "Quản lý người dùng",
     comments: "Quản lý bình luận",
     settings: "Cấu hình hệ thống",
+    frames: "Viền trang trí & tiên lộ",
+    world: "Thế Giới — Luận Đạo",
+    audit: "Nhật ký hỗ trợ cộng đồng",
   };
   return (
     <div className="admin-layout">
@@ -261,45 +337,33 @@ export default function AdminPanel({
       )}
       <aside>
         <Logo />
-        <p>QUẢN TRỊ</p>
+        {navigation.map(({ key, url, label, icon: Icon, group }) => (
+          <div className="admin-nav-entry" key={key}>
+            {group && <p className="admin-nav-group">{group}</p>}
+            <button
+              type="button"
+              className={`admin-nav-btn ${section === key ? "active" : ""}`}
+              aria-current={section === key ? "page" : undefined}
+              onClick={() => go(url)}
+            >
+              <span className="admin-nav-icon">
+                <Icon aria-hidden="true" />
+              </span>
+              <span>{label}</span>
+              {section === key && (
+                <i className="admin-nav-dot" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        ))}
         <button
-          className={section === "dashboard" ? "active" : ""}
-          onClick={() => go("/admin")}
+          className="admin-nav-btn admin-site-link"
+          onClick={() => go("/")}
         >
-          <LayoutDashboard /> Tổng quan
-        </button>
-        <button
-          className={section === "movies" ? "active" : ""}
-          onClick={() => go("/admin/phim")}
-        >
-          <Clapperboard /> Kho phim
-        </button>
-        <button
-          className={section === "schedule" ? "active" : ""}
-          onClick={() => go("/admin/lich-chieu")}
-        >
-          <CalendarClock /> Lịch chiếu
-        </button>
-        <button
-          className={section === "users" ? "active" : ""}
-          onClick={() => go("/admin/nguoi-dung")}
-        >
-          <Users /> Người dùng
-        </button>
-        <button
-          className={section === "comments" ? "active" : ""}
-          onClick={() => go("/admin/binh-luan")}
-        >
-          <MessageCircle /> Bình luận
-        </button>
-        <button
-          className={section === "settings" ? "active" : ""}
-          onClick={() => go("/admin/cai-dat")}
-        >
-          <Settings /> Cài đặt
-        </button>
-        <button onClick={() => go("/")}>
-          <Eye /> Xem website
+          <span className="admin-nav-icon">
+            <Eye aria-hidden="true" />
+          </span>
+          <span>Xem website</span>
         </button>
         <button className="admin-logout" onClick={logout}>
           <LogOut /> Đăng xuất
@@ -313,10 +377,30 @@ export default function AdminPanel({
           </div>
           <div className="admin-profile">
             <span className="api-mode-badge">{apiMode}</span>
-            <span>
-              Quản trị viên<small>Toàn quyền hệ thống</small>
-            </span>
-            <i className="admin-avatar">QT</i>
+            <button
+              type="button"
+              className="admin-account-link"
+              onClick={() => go("/tai-khoan")}
+              aria-label="Mở hồ sơ quản trị của bạn"
+            >
+              <span className="admin-account-copy">
+                <strong>{identity?.name ?? account.name}</strong>
+                <small>
+                  <ShieldCheck size={12} aria-hidden="true" />
+                  Quản trị viên
+                </small>
+              </span>
+              <UserAvatar
+                name={identity?.name ?? account.name}
+                userId={identity?.id ?? account.id}
+                avatarId={identity?.avatarId ?? account.avatarId}
+                avatarVersion={
+                  identity ? identity.avatarVersion : account.avatarVersion
+                }
+                frameId={identity?.avatarFrameId ?? account.avatarFrameId}
+                cultivationXp={identity?.cultivationXp ?? account.cultivationXp}
+              />
+            </button>
           </div>
         </header>
         {section === "dashboard" && (
@@ -345,6 +429,15 @@ export default function AdminPanel({
           />
         )}
         {section === "comments" && <AdminComments />}
+        {(section === "frames" ||
+          section === "world" ||
+          section === "audit") && (
+          <AdminCommunity
+            section={section}
+            viewers={viewers}
+            support={setSupporting}
+          />
+        )}
         {section === "settings" && (
           <AdminSettings settings={settings} save={saveSettings} />
         )}
@@ -361,6 +454,20 @@ export default function AdminPanel({
           viewer={editingViewer}
           close={() => setEditingViewer(undefined)}
           save={saveViewer}
+          support={(viewer) => {
+            setEditingViewer(undefined);
+            setSupporting(viewer);
+          }}
+        />
+      )}
+      {supporting && (
+        <SupportProfileForm
+          viewer={supporting}
+          close={() => setSupporting(null)}
+          saved={async () => {
+            setViewers(await adminGateway.listViewers());
+            notify("Đã hỗ trợ hồ sơ và ghi nhật ký");
+          }}
         />
       )}
       {section === "movies" && (

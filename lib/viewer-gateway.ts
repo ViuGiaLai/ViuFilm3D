@@ -67,13 +67,25 @@ export const viewerGateway = {
     );
   },
 
-  async addComment(movieId: number, body: string, authorName: string) {
+  async addComment(
+    movieId: number,
+    body: string,
+    authorName: string,
+    avatarId?: string,
+    avatarVersion?: string | null,
+    parentId?: number | null,
+  ) {
     if (apiMode === "mock") {
       const comment: MovieComment = {
         id: Date.now(),
         movieId,
         authorId: 1,
         authorName,
+        avatarId,
+        avatarVersion,
+        parentId: parentId ?? null,
+        likeCount: 0,
+        liked: false,
         body,
         createdAt: new Date().toISOString(),
         mine: true,
@@ -86,8 +98,33 @@ export const viewerGateway = {
     }
     return requestApi<MovieComment>(`/movies/${movieId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, parentId }),
     });
+  },
+
+  async setCommentLike(movieId: number, commentId: number, liked: boolean) {
+    if (apiMode === "mock") {
+      const comments = readStorage<MovieComment[]>(
+        mockCommentsKey(movieId),
+        [],
+      );
+      const next = comments.map((item) =>
+        item.id === commentId
+          ? {
+              ...item,
+              liked,
+              likeCount: Math.max(0, (item.likeCount ?? 0) + (liked ? 1 : -1)),
+            }
+          : item,
+      );
+      writeStorage(mockCommentsKey(movieId), next);
+      const comment = next.find((item) => item.id === commentId);
+      return { liked, likeCount: comment?.likeCount ?? 0 };
+    }
+    return requestApi<{ liked: boolean; likeCount: number }>(
+      `/comments/${commentId}/like`,
+      { method: liked ? "PUT" : "DELETE" },
+    );
   },
 
   async removeComment(movieId: number, commentId: number) {
