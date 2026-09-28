@@ -12,7 +12,6 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
         timeout(time: 30, unit: 'MINUTES')
-        ansiColor('xterm')
     }
 
     stages {
@@ -88,12 +87,21 @@ pipeline {
                     echo "Đang kiểm tra trạng thái khởi động của container..."
                     sleep 10
 
-                    # Thử tối đa 10 lần kiểm tra healthcheck
                     SUCCESS=0
+                    CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${CONTAINER_NAME} 2>/dev/null || echo "")
+
                     for i in $(seq 1 10); do
                         echo "Lần kiểm tra $i/10..."
-                        if curl -s -f http://127.0.0.1:${HOST_PORT}/api/health > /dev/null; then
+                        if [ -n "$CONTAINER_IP" ] && curl -s -f http://${CONTAINER_IP}:${CONTAINER_PORT}/api/health > /dev/null; then
                             echo "✅ ViuFilm3D đã sẵn sàng và hoạt động bình thường!"
+                            SUCCESS=1
+                            break
+                        elif curl -s -f http://host.docker.internal:${HOST_PORT}/api/health > /dev/null; then
+                            echo "✅ ViuFilm3D đã sẵn sàng và hoạt động bình thường qua host.docker.internal!"
+                            SUCCESS=1
+                            break
+                        elif curl -s -f http://127.0.0.1:${HOST_PORT}/api/health > /dev/null; then
+                            echo "✅ ViuFilm3D đã sẵn sàng và hoạt động bình thường qua localhost!"
                             SUCCESS=1
                             break
                         fi
