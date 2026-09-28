@@ -609,7 +609,9 @@ export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
                       .filter((frame) => frame.group === group)
                       .map((frame) => {
                         const locked =
-                          (user.role !== "admin" && (user.cultivationXp ?? 0) < frame.minXp && !user.frameGrants?.includes(frame.id)) ||
+                          (user.role !== "admin" &&
+                            (user.cultivationXp ?? 0) < frame.minXp &&
+                            !user.frameGrants?.includes(frame.id)) ||
                           (apiMode === "production" &&
                             !user.publicId &&
                             frame.id !== "none");

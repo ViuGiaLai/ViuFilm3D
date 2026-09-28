@@ -6,12 +6,24 @@ export type FrameMedia = {
   animated: boolean;
   scale: number;
 };
-export const avatarFrameMedia: Record<string, FrameMedia | undefined> = {
-  "realm-14": {
-    src: "/assets/avatar-frames/realms/realm-14/v1/animated.webp",
-    poster: "/assets/avatar-frames/realms/realm-14/v1/poster.webp",
-    version: 1,
+/** One declaration per replacement; paths follow the public asset convention. */
+export function frameMedia(
+  collection: "realms" | "elements" | "beasts" | "achievements" | "special",
+  frameId: string,
+  version: number,
+  scale = 1.35,
+): FrameMedia {
+  const base = `/assets/avatar-frames/${collection}/${frameId}/v${version}`;
+  return {
+    src: `${base}/animated.webp`,
+    poster: `${base}/poster.webp`,
+    version,
     animated: true,
-    scale: 1.55,
-  },
+    scale,
+  };
+}
+export const avatarFrameMedia: Record<string, FrameMedia | undefined> = {
+  // Phàm Nhân: add "realm-0": frameMedia("realms", "realm-0", 1, 1.35),
+  "realm-0": frameMedia("realms", "realm-0", 1, 1.35),
+  "realm-14": frameMedia("realms", "realm-14", 1, 1.55),
 };

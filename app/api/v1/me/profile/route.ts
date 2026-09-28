@@ -29,7 +29,12 @@ export async function PATCH(request: Request) {
         503,
       );
     }
-    if (!frame || (viewer.account.role !== "admin" && (viewer.account.cultivationXp ?? 0) < frame.minXp && !viewer.account.frameGrants?.includes(frame.id))) {
+    if (
+      !frame ||
+      (viewer.account.role !== "admin" &&
+        (viewer.account.cultivationXp ?? 0) < frame.minXp &&
+        !viewer.account.frameGrants?.includes(frame.id))
+    ) {
       return apiProblem("Viền ảnh chưa được mở khóa hoặc không hợp lệ.", 400);
     }
     if (name.length < 2 || name.length > 100) {

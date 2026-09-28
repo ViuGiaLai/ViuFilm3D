@@ -56,10 +56,29 @@ export async function hasAdminSession() {
   return Boolean(await getAdminSession());
 }
 
-export const adminCookieOptions = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  path: "/",
-  maxAge: SESSION_DURATION_SECONDS,
-};
+export function isRequestSecure(request?: Request): boolean {
+  if (process.env.COOKIE_SECURE === "true") return true;
+  if (process.env.COOKIE_SECURE === "false") return false;
+  if (!request) return false;
+  const proto =
+    request.headers.get("x-forwarded-proto") ||
+    request.headers.get("x-forwarded-protocol");
+  if (proto === "https") return true;
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export function resolveAdminCookieOptions(request?: Request) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: isRequestSecure(request),
+    path: "/",
+    maxAge: SESSION_DURATION_SECONDS,
+  };
+}
+
+export const adminCookieOptions = resolveAdminCookieOptions();

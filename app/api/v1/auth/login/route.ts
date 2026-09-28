@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import {
   ADMIN_COOKIE,
-  adminCookieOptions,
   createAdminToken,
+  resolveAdminCookieOptions,
 } from "@/lib/server/admin-session";
 import { apiError } from "@/lib/server/api-response";
 import { getAdminCredentials, isAdminAuthConfigured } from "@/lib/server/env";
 import { createSupabaseReadClient } from "@/lib/supabase/server";
 import {
+  attachViewerSession,
   clearViewerSession,
+  clearViewerSessionOnResponse,
   findViewerProfile,
   setViewerSession,
 } from "@/lib/server/viewer-session";
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
 
       if (email === adminEmail && passwordMatches) {
         const profile = await getAdminProfile(email);
-        await clearViewerSession();
+        await clearViewerSession(request);
         const response = NextResponse.json({
           data: profile?.account ?? {
             email,
@@ -45,11 +47,9 @@ export async function POST(request: Request) {
             role: "admin",
           },
         });
-        response.cookies.set(
-          ADMIN_COOKIE,
-          createAdminToken(email),
-          adminCookieOptions,
-        );
+        const opts = resolveAdminCookieOptions(request);
+        response.cookies.set(ADMIN_COOKIE, createAdminToken(email), opts);
+        clearViewerSessionOnResponse(response, request);
         return response;
       }
     }
@@ -76,10 +76,12 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     }
-    await setViewerSession(data.session);
+    await setViewerSession(data.session, request);
     const response = NextResponse.json({ data: viewer.account });
+    attachViewerSession(response, data.session, request);
+    const adminOpts = resolveAdminCookieOptions(request);
     response.cookies.set(ADMIN_COOKIE, "", {
-      ...adminCookieOptions,
+      ...adminOpts,
       maxAge: 0,
     });
     return response;

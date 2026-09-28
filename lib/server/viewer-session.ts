@@ -9,15 +9,20 @@ import {
 import type { Account } from "@/lib/app-types";
 import { ConfigurationError } from "@/lib/server/errors";
 
-const ACCESS_COOKIE = "viufilm3d_viewer_access";
-const REFRESH_COOKIE = "viufilm3d_viewer_refresh";
+import { isRequestSecure } from "@/lib/server/admin-session";
+import type { NextResponse } from "next/server";
 
-const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-};
+export const ACCESS_COOKIE = "viufilm3d_viewer_access";
+export const REFRESH_COOKIE = "viufilm3d_viewer_refresh";
+
+export function resolveViewerCookieOptions(request?: Request) {
+  return {
+    httpOnly: true,
+    secure: isRequestSecure(request),
+    sameSite: "lax" as const,
+    path: "/",
+  };
+}
 
 export type ViewerIdentity = {
   id: number;
@@ -62,22 +67,49 @@ export async function findViewerProfile(
   };
 }
 
-export async function setViewerSession(session: Session) {
+export async function setViewerSession(session: Session, request?: Request) {
   const store = await cookies();
+  const opts = resolveViewerCookieOptions(request);
   store.set(ACCESS_COOKIE, session.access_token, {
-    ...cookieOptions,
+    ...opts,
     maxAge: Math.max(60, session.expires_in),
   });
   store.set(REFRESH_COOKIE, session.refresh_token, {
-    ...cookieOptions,
+    ...opts,
     maxAge: 30 * 24 * 60 * 60,
   });
 }
 
-export async function clearViewerSession() {
+export function attachViewerSession(
+  response: NextResponse,
+  session: Session,
+  request?: Request,
+) {
+  const opts = resolveViewerCookieOptions(request);
+  response.cookies.set(ACCESS_COOKIE, session.access_token, {
+    ...opts,
+    maxAge: Math.max(60, session.expires_in),
+  });
+  response.cookies.set(REFRESH_COOKIE, session.refresh_token, {
+    ...opts,
+    maxAge: 30 * 24 * 60 * 60,
+  });
+}
+
+export async function clearViewerSession(request?: Request) {
   const store = await cookies();
-  store.set(ACCESS_COOKIE, "", { ...cookieOptions, maxAge: 0 });
-  store.set(REFRESH_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  const opts = resolveViewerCookieOptions(request);
+  store.set(ACCESS_COOKIE, "", { ...opts, maxAge: 0 });
+  store.set(REFRESH_COOKIE, "", { ...opts, maxAge: 0 });
+}
+
+export function clearViewerSessionOnResponse(
+  response: NextResponse,
+  request?: Request,
+) {
+  const opts = resolveViewerCookieOptions(request);
+  response.cookies.set(ACCESS_COOKIE, "", { ...opts, maxAge: 0 });
+  response.cookies.set(REFRESH_COOKIE, "", { ...opts, maxAge: 0 });
 }
 
 export async function getViewerIdentity(): Promise<ViewerIdentity | null> {
