@@ -813,8 +813,7 @@ export default function WatchPage({
               </button>
               <button
                 type="button"
-                className="action-btn"
-                style={{ marginLeft: 8 }}
+                className={`action-btn ${roomQuery ? "watchparty-action-desktop-only" : ""}`}
                 onClick={() => {
                   if (roomQuery) {
                     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -840,9 +839,8 @@ export default function WatchPage({
               {roomQuery && isHost && (
                 <button
                   type="button"
-                  className="action-btn"
+                  className="action-btn watchparty-action-desktop-only"
                   style={{
-                    marginLeft: 8,
                     background: "rgba(124, 58, 237, 0.2)",
                     borderColor: "#7c3aed",
                     color: "#c4b5fd",
