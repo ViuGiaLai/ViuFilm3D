@@ -8,9 +8,14 @@ import { mediaGateway } from "@/lib/media-gateway";
 type MovieArtProps = {
   movie: Movie;
   className?: string;
+  disableVideoThumb?: boolean;
 };
 
-export function MovieArt({ movie, className = "" }: MovieArtProps) {
+export function MovieArt({
+  movie,
+  className = "",
+  disableVideoThumb = false,
+}: MovieArtProps) {
   const [posterUrl, setPosterUrl] = useState<string | undefined>(
     movie.poster &&
       (movie.poster.startsWith("/") ||
@@ -54,9 +59,9 @@ export function MovieArt({ movie, className = "" }: MovieArtProps) {
       };
     }
 
-    // 2. If no poster, resolve video to display real video thumbnail frame
+    // 2. If no poster, resolve video to display real video thumbnail frame (only if not disabled)
     setPosterUrl(undefined);
-    if (movie.video) {
+    if (!disableVideoThumb && movie.video) {
       if (
         movie.video.startsWith("/") ||
         movie.video.startsWith("http") ||
@@ -78,7 +83,7 @@ export function MovieArt({ movie, className = "" }: MovieArtProps) {
     return () => {
       active = false;
     };
-  }, [movie.poster, movie.video]);
+  }, [movie.poster, movie.video, disableVideoThumb]);
 
   const [videoError, setVideoError] = useState(false);
 
@@ -100,7 +105,7 @@ export function MovieArt({ movie, className = "" }: MovieArtProps) {
           className="movie-art-img"
           onError={() => setImageError(true)}
         />
-      ) : videoUrl && !videoError ? (
+      ) : !disableVideoThumb && videoUrl && !videoError ? (
         <video
           src={`${videoUrl}#t=0.5`}
           preload="metadata"
@@ -110,9 +115,14 @@ export function MovieArt({ movie, className = "" }: MovieArtProps) {
           onError={() => setVideoError(true)}
         />
       ) : (
-        <div className="movie-art-clean-fallback">
-          <Film size={22} />
-          <span>{movie.title}</span>
+        <div
+          className="movie-art-clean-fallback"
+          style={{
+            background: `linear-gradient(135deg, ${movie.colors?.[0] || "#1e293b"} 0%, ${movie.colors?.[1] || "#0f172a"} 100%)`,
+          }}
+        >
+          <Film size={20} style={{ opacity: 0.8, color: "var(--accent, #f5a524)" }} />
+          <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>{movie.title}</span>
         </div>
       )}
     </div>

@@ -9184,3 +9184,58 @@ button.social-person:hover {
   color: #94a3b8;
   font-size: 14px;
 }
+
+.watchparty-modal-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.watchparty-modal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.watchparty-modal-tab:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.watchparty-modal-tab.active {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #fff;
+  border-color: rgba(196, 181, 253, 0.4);
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
+}
+.watchparty-meta-pill {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+.watchparty-status-dot {
+  font-size: 11px;
+  color: #94a3b8;
+}
+.watchparty-status-dot.ongoing {
+  color: #34d399;
+}
+.watchparty-views-text {
+  font-size: 11px;
+  color: #f5a524;
+  margin-left: auto;
+  font-weight: 600;
+}

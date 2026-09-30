@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -8,12 +8,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Film,
+  Flame,
   LogOut,
   Maximize2,
   Minimize2,
   Plus,
   Search,
   Share2,
+  Sparkles,
   Users,
   X,
 } from "lucide-react";
@@ -100,6 +102,7 @@ export default function WatchPage({
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: "", show: false });
   const [showMoviePicker, setShowMoviePicker] = useState(false);
   const [movieSearch, setMovieSearch] = useState("");
+  const [pickerTab, setPickerTab] = useState<"trending" | "related" | "latest">("trending");
 
   const showToast = (message: string) => {
     setToast({ message, show: true });
@@ -560,15 +563,46 @@ export default function WatchPage({
   };
 
   const allMoviesList: Movie[] = movies && movies.length > 0 ? movies : movieSeed;
-  const filteredMovies = allMoviesList.filter((m: Movie) => {
-    if (!movieSearch.trim()) return true;
-    const term = movieSearch.toLowerCase();
-    return (
-      m.title.toLowerCase().includes(term) ||
-      m.originalTitle?.toLowerCase().includes(term) ||
-      m.genres?.some((g: string) => g.toLowerCase().includes(term))
-    );
-  });
+
+  // Gợi ý thông minh cho phòng xem chung (chỉ lấy tối đa 8 phim) để mở modal siêu tốc, không lag, không rối mắt
+  const pickerMovies = useMemo(() => {
+    if (movieSearch.trim()) {
+      const term = movieSearch.toLowerCase();
+      return allMoviesList
+        .filter((m: Movie) => {
+          return (
+            m.title.toLowerCase().includes(term) ||
+            m.originalTitle?.toLowerCase().includes(term) ||
+            m.genres?.some((g: string) => g.toLowerCase().includes(term))
+          );
+        })
+        .slice(0, 10);
+    }
+
+    if (pickerTab === "trending") {
+      // Phim xem nhiều nhất
+      return [...allMoviesList]
+        .filter((m: Movie) => m.id !== movie.id)
+        .sort((a, b) => (b.views || 0) - (a.views || 0))
+        .slice(0, 8);
+    }
+
+    if (pickerTab === "related") {
+      // Phim cùng thể loại với phim hiện tại
+      const related = allMoviesList.filter(
+        (m: Movie) =>
+          m.id !== movie.id &&
+          m.genres?.some((g: string) => movie.genres?.includes(g)),
+      );
+      return (related.length > 0 ? related : allMoviesList.filter((m: Movie) => m.id !== movie.id)).slice(0, 8);
+    }
+
+    // Mới cập nhật
+    return [...allMoviesList]
+      .filter((m: Movie) => m.id !== movie.id)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 8);
+  }, [allMoviesList, movieSearch, pickerTab, movie.id, movie.genres]);
 
   return (
     <main
@@ -1059,13 +1093,14 @@ export default function WatchPage({
               </button>
             </div>
 
+            {/* THANH TÌM KIẾM NHANH */}
             <div className="watchparty-modal-search">
               <Search size={16} />
               <input
                 type="text"
                 value={movieSearch}
                 onChange={(e) => setMovieSearch(e.target.value)}
-                placeholder="Tìm phim theo tên, thể loại..."
+                placeholder="Tìm nhanh tên phim, thể loại..."
                 autoFocus
               />
               {movieSearch && (
@@ -1075,9 +1110,40 @@ export default function WatchPage({
               )}
             </div>
 
+            {/* TAB GỢI Ý THÔNG MINH (KHI KHÔNG TÌM KIẾM) */}
+            {!movieSearch.trim() && (
+              <div className="watchparty-modal-tabs">
+                <button
+                  type="button"
+                  className={`watchparty-modal-tab ${pickerTab === "trending" ? "active" : ""}`}
+                  onClick={() => setPickerTab("trending")}
+                >
+                  <Flame size={14} />
+                  <span>Đang xem nhiều</span>
+                </button>
+                <button
+                  type="button"
+                  className={`watchparty-modal-tab ${pickerTab === "related" ? "active" : ""}`}
+                  onClick={() => setPickerTab("related")}
+                >
+                  <Sparkles size={14} />
+                  <span>Cùng thể loại</span>
+                </button>
+                <button
+                  type="button"
+                  className={`watchparty-modal-tab ${pickerTab === "latest" ? "active" : ""}`}
+                  onClick={() => setPickerTab("latest")}
+                >
+                  <Film size={14} />
+                  <span>Mới cập nhật</span>
+                </button>
+              </div>
+            )}
+
+            {/* DANH SÁCH PHIM GỢI Ý (TỐI ĐA 8-10 PHIM, SIÊU MƯỢT, 0MS LAG) */}
             <div className="watchparty-modal-list">
-              {filteredMovies.length > 0 ? (
-                filteredMovies.map((m: Movie) => {
+              {pickerMovies.length > 0 ? (
+                pickerMovies.map((m: Movie) => {
                   const isCurrent = m.id === movie.id;
                   const isSeries = m.totalEpisodes > 1 || (m.episodes && m.episodes.length > 1);
                   return (
@@ -1086,20 +1152,20 @@ export default function WatchPage({
                       className={`watchparty-movie-item ${isCurrent ? "current" : ""}`}
                     >
                       <div className="watchparty-movie-art">
-                        <MovieArt movie={m} />
+                        <MovieArt movie={m} disableVideoThumb={true} />
                       </div>
                       <div className="watchparty-movie-info">
                         <h4>{m.title}</h4>
                         <div className="watchparty-movie-meta">
-                          <span>{isSeries ? `Tập 1-${m.episode}/${m.totalEpisodes}` : "Bản Full"}</span>
-                          <span>•</span>
-                          <span style={{ color: m.status === "Đang chiếu" ? "#34d399" : "#a1a1aa" }}>{m.status}</span>
-                          {m.genres && m.genres.length > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>{m.genres.slice(0, 2).join(", ")}</span>
-                            </>
-                          )}
+                          <span className="watchparty-meta-pill">
+                            {isSeries ? `Tập 1-${m.episode}/${m.totalEpisodes}` : "Bản Full"}
+                          </span>
+                          <span className={`watchparty-status-dot ${m.status === "Đang chiếu" ? "ongoing" : ""}`}>
+                            {m.status}
+                          </span>
+                          {m.views ? (
+                            <span className="watchparty-views-text">👁️ {(m.views || 0).toLocaleString()}</span>
+                          ) : null}
                         </div>
                       </div>
                       <div className="watchparty-movie-action">
