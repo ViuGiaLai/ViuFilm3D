@@ -70,6 +70,7 @@ export default function WatchPage({
   const playerColumnRef = useRef<HTMLElement>(null);
   const playerRef = useRef<PlayerRef>(null);
   const watchPartyRef = useRef<{ broadcast: (e: WatchPartyEvent) => void } | null>(null);
+  const lastHeartbeatRef = useRef<number>(0);
   const reportedViewsRef = useRef<Set<string>>(new Set());
   const viewRetryAtRef = useRef<Map<string, number>>(new Map());
   const lastProgressReportRef = useRef<{ key: string; seconds: number }>({
@@ -129,8 +130,17 @@ export default function WatchPage({
         const player = playerRef.current;
         if (!player) return;
         if (event.type === "play") {
-          player.play();
+          if (typeof event.time === "number" && Number.isFinite(event.time)) {
+            const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
+            if (Math.abs(cur - event.time) > 0.8) {
+              player.seek(event.time);
+            }
+          }
+          void player.play();
         } else if (event.type === "pause") {
+          if (typeof event.time === "number" && Number.isFinite(event.time)) {
+            player.seek(event.time);
+          }
           player.pause();
         } else if (event.type === "seek" && event.time !== undefined) {
           player.seek(event.time);
@@ -138,11 +148,59 @@ export default function WatchPage({
           player.setSpeed?.(event.speed);
         } else if (event.type === "change_episode" && event.episode !== undefined) {
           selectEpisode(event.episode, true);
+        } else if (event.type === "request_sync") {
+          // Khách mới vào phòng yêu cầu Chủ phòng gửi vị trí thời gian hiện tại
+          if (hostKey) {
+            const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
+            const paused = player.isPaused ? player.isPaused() : true;
+            wp?.broadcast({
+              type: "sync",
+              time: cur,
+              paused,
+              episode,
+              by: String(user?.id),
+            });
+          }
+        } else if (event.type === "sync") {
+          // Đồng bộ tức thì theo Chủ phòng
+          if (!hostKey) {
+            if (event.episode !== undefined && event.episode !== episode) {
+              selectEpisode(event.episode, true);
+            }
+            if (typeof event.time === "number" && Number.isFinite(event.time)) {
+              player.seek(event.time);
+            }
+            if (event.paused === false) {
+              void player.play();
+            } else if (event.paused === true) {
+              player.pause();
+            }
+          }
+        } else if (event.type === "heartbeat") {
+          // Bù trôi thời gian định kỳ giữa Chủ phòng và Khách
+          if (!hostKey && typeof event.time === "number" && Number.isFinite(event.time)) {
+            const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
+            if (Math.abs(cur - event.time) > 2.5) {
+              player.seek(event.time);
+            }
+          }
         }
       },
       (count, viewersList) => {
         setViewerCount(count);
         setViewers(viewersList);
+        // Khi có thành viên mới vào phòng, Chủ phòng chủ động phát 1 gói sync
+        if (hostKey && playerRef.current) {
+          const cur = playerRef.current.getCurrentTime ? playerRef.current.getCurrentTime() : 0;
+          const paused = playerRef.current.isPaused ? playerRef.current.isPaused() : true;
+          wp?.broadcast({
+            type: "sync",
+            time: cur,
+            paused,
+            episode,
+            by: String(user?.id),
+          });
+        }
       },
       {
         id: user?.id ? String(user.id) : undefined,
@@ -156,13 +214,19 @@ export default function WatchPage({
 
     if (wp) {
       watchPartyRef.current = { broadcast: wp.broadcast };
+      // Nếu là khách tham gia phòng, gửi yêu cầu đồng bộ ngay sau khi kết nối
+      if (!hostKey) {
+        setTimeout(() => {
+          wp.broadcast({ type: "request_sync", by: String(user?.id) });
+        }, 500);
+      }
     }
 
     return () => {
       if (wp) wp.leave();
       watchPartyRef.current = null;
     };
-  }, [roomQuery, user]);
+  }, [roomQuery, user, episode]);
 
   const trailerVideo = movie.trailer || "";
 
@@ -527,23 +591,38 @@ export default function WatchPage({
                 movieId={movie.id}
                 episodeNumber={episode}
                 initialResumeSeconds={
-                  historyItem?.episode === episode && historyItem.progress < 95
-                    ? (historyItem.positionSeconds ?? 0)
-                    : 0
+                  Boolean(roomQuery) && !isHost
+                    ? 0
+                    : historyItem?.episode === episode && historyItem.progress < 95
+                      ? (historyItem.positionSeconds ?? 0)
+                      : 0
                 }
                 persistLocalProgress={
-                  apiMode === "mock" || user?.role !== "user"
+                  Boolean(roomQuery) && !isHost
+                    ? false
+                    : apiMode === "mock" || user?.role !== "user"
                 }
                 readOnly={Boolean(roomQuery) && !isHost}
                 onUnauthorizedAction={() => showToast("Chỉ Chủ phòng mới có quyền điều khiển video!")}
-                onPlay={() => {
+                onPlay={(currentTime) => {
                   if (!roomQuery || isHost) {
-                    watchPartyRef.current?.broadcast({ type: "play", time: 0, by: String(user?.id) });
+                    watchPartyRef.current?.broadcast({ type: "play", time: currentTime, by: String(user?.id) });
                   }
                 }}
                 onTimeUpdate={(currentTime, duration) => {
                   recordQualifiedView(currentTime);
                   reportPlaybackProgress(currentTime, duration);
+                  if (roomQuery && isHost) {
+                    const now = Date.now();
+                    if (now - lastHeartbeatRef.current > 8000) {
+                      lastHeartbeatRef.current = now;
+                      watchPartyRef.current?.broadcast({
+                        type: "heartbeat",
+                        time: currentTime,
+                        by: String(user?.id),
+                      });
+                    }
+                  }
                 }}
                 onPlaybackPause={(currentTime, duration) => {
                   if (!roomQuery || isHost) {

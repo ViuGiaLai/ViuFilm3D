@@ -26,10 +26,12 @@ import {
 } from "lucide-react";
 
 export interface PlayerRef {
-  play: () => void;
+  play: () => Promise<void> | void;
   pause: () => void;
   seek: (time: number) => void;
   setSpeed: (speed: number) => void;
+  getCurrentTime?: () => number;
+  isPaused?: () => boolean;
 }
 
 type TrackInfo = { label: string; url: string; lang?: string };
@@ -44,7 +46,7 @@ type CustomPlayerProps = {
   quality?: string;
   movieId: number;
   episodeNumber: number;
-  onPlay?: () => void;
+  onPlay?: (currentTime: number) => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onPlaybackPause?: (currentTime: number, duration: number) => void;
   initialResumeSeconds?: number;
@@ -188,6 +190,7 @@ const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [needsUnmute, setNeedsUnmute] = useState(false);
 
   // Trạng thái Double Tap trên mobile (YouTube/Netflix gesture)
   const [touchFeedback, setTouchFeedback] = useState<{
@@ -391,6 +394,12 @@ const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
     if (isTouchRef.current) {
       isTouchRef.current = false;
       return;
+    }
+    if (needsUnmute) {
+      if (videoRef.current) videoRef.current.muted = false;
+      if (audioRef.current) audioRef.current.muted = false;
+      setIsMuted(false);
+      setNeedsUnmute(false);
     }
     togglePlay();
     resetControlsTimer();
@@ -662,10 +671,28 @@ const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
   const bufferPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
 
   useImperativeHandle(ref, () => ({
-    play: () => {
-      if (videoRef.current && videoRef.current.paused) {
-        void videoRef.current.play().catch(console.error);
+    play: async () => {
+      const v = videoRef.current;
+      if (!v) return;
+      try {
+        await v.play();
         setIsPlaying(true);
+      } catch (err: unknown) {
+        // Nếu trình duyệt chặn phát có tiếng do người dùng chưa chạm vào trang web:
+        if (err instanceof DOMException && err.name === "NotAllowedError") {
+          try {
+            v.muted = true;
+            setIsMuted(true);
+            await v.play();
+            setIsPlaying(true);
+            setNeedsUnmute(true);
+            return;
+          } catch {
+            // Trường hợp hy hữu cả muted cũng bị từ chối
+          }
+        }
+        setIsPlaying(false);
+        setShowControls(true);
       }
     },
     pause: () => {
@@ -687,7 +714,13 @@ const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
         if (audioRef.current) audioRef.current.playbackRate = speed;
         setPlaybackSpeed(speed);
       }
-    }
+    },
+    getCurrentTime: () => {
+      return videoRef.current?.currentTime ?? 0;
+    },
+    isPaused: () => {
+      return videoRef.current?.paused ?? true;
+    },
   }));
 
   useEffect(() => {
@@ -730,7 +763,7 @@ const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
         }}
         onPlay={() => {
           setIsPlaying(true);
-          onPlay?.();
+          onPlay?.(videoRef.current?.currentTime ?? 0);
         }}
         onPause={() => {
           audioRef.current?.pause();
@@ -833,6 +866,24 @@ const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
           <RotateCw size={32} />
           <span>+10s</span>
         </div>
+      )}
+
+      {/* NÚT BẬT TIẾNG KHI TỰ ĐỘNG PHÁT TẮT TIẾNG DO BROWSER POLICY */}
+      {needsUnmute && (
+        <button
+          type="button"
+          className="player-unmute-prompt-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (videoRef.current) videoRef.current.muted = false;
+            if (audioRef.current) audioRef.current.muted = false;
+            setIsMuted(false);
+            setNeedsUnmute(false);
+          }}
+        >
+          <VolumeX size={18} />
+          <span>Bấm để bật âm thanh</span>
+        </button>
       )}
 
       {/* 1. NÚT PLAY TRÒN CHÍNH GIỮA MÀN HÌNH (User: "thiếu nút play nữa") */}

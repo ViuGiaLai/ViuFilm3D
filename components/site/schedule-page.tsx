@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Clock3, Flame } from "lucide-react";
+import { CalendarDays, Flame } from "lucide-react";
 import { MovieCard } from "@/components/site/home-page";
 import type { Movie } from "@/lib/movies";
 import type { Navigate } from "@/components/site/types";

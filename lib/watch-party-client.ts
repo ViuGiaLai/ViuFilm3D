@@ -10,10 +10,11 @@ let client: SupabaseClient | null = null;
 const rooms = new Map<string, RealtimeChannel>();
 
 export type WatchPartyEvent = {
-  type: "play" | "pause" | "seek" | "change_speed" | "change_episode";
+  type: "play" | "pause" | "seek" | "change_speed" | "change_episode" | "sync" | "request_sync" | "heartbeat";
   time?: number;
   speed?: number;
   episode?: number;
+  paused?: boolean;
   by: string; // user id or something
 };
 
@@ -64,7 +65,7 @@ export function joinWatchParty(
       const viewers: WatchPartyViewer[] = [];
       for (const key in state) {
         if (state[key] && state[key]!.length > 0) {
-          viewers.push(state[key]![0] as WatchPartyViewer);
+          viewers.push(state[key]![0] as unknown as WatchPartyViewer);
         }
       }
       if (onPresenceSync) onPresenceSync(count, viewers);
