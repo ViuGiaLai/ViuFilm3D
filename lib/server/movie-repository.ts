@@ -30,6 +30,8 @@ type MovieRow = {
   subtitle_key: string | null;
   audio_key: string | null;
   trailer_key: string | null;
+  subtitles_data?: any;
+  audios_data?: any;
 };
 
 const EPISODES_TAG_PREFIX = "<!--viufilm-episodes:";
@@ -121,8 +123,8 @@ const fromRow = (row: MovieRow & { episodes?: unknown }): Movie => {
     video: row.video,
     trailer: row.trailer_key ?? undefined,
     poster: row.poster_key ?? undefined,
-    subtitle: row.subtitle_key ?? undefined,
-    audio: row.audio_key ?? undefined,
+    subtitles: row.subtitles_data ? (Array.isArray(row.subtitles_data) ? row.subtitles_data : JSON.parse(row.subtitles_data)) : undefined,
+    audios: row.audios_data ? (Array.isArray(row.audios_data) ? row.audios_data : JSON.parse(row.audios_data)) : undefined,
   };
 };
 
@@ -154,8 +156,10 @@ const toRow = (movie: Movie): MovieRow => {
     status: movie.status,
     video: primaryVideo,
     poster_key: movie.poster || null,
-    subtitle_key: movie.subtitle || null,
-    audio_key: movie.audio || null,
+    subtitle_key: null,
+    audio_key: null,
+    subtitles_data: movie.subtitles || null,
+    audios_data: movie.audios || null,
     trailer_key: movie.trailer || null,
   };
 };

@@ -159,12 +159,16 @@ export function MovieCard({
   favorites,
   toggleFavorite,
 }: MovieCardProps) {
+  const todayName = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"][new Date().getDay()];
+  const isNewToday = movie.updateDay === todayName && movie.status === "Đang chiếu";
+
   return (
     <article className="movie-card">
       <button className="poster-wrap" onClick={() => go(`/phim/${movie.slug}`)}>
         <MovieArt movie={movie} />
         <span className="card-labels">
           <i>{formatMovieBadge(movie)}</i>
+          {isNewToday && <b style={{ backgroundColor: "#ef4444", color: "white" }}>Hôm nay có tập mới</b>}
           {movie.id % 3 === 0 && <b>Miễn phí</b>}
         </span>
         <span className="play-hover">

@@ -4,9 +4,16 @@ import type { Account } from "@/lib/app-types";
 
 export const authGateway = {
   async register(name: string, email: string, password: string) {
-    return requestApi<{ confirmationRequired: boolean }>("/auth/register", {
+    return requestApi<{ confirmationRequired: boolean; userAlreadyExists?: boolean }>("/auth/register", {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
+    });
+  },
+
+  async resendConfirmation(email: string) {
+    return requestApi<{ sent: boolean }>("/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email }),
     });
   },
 

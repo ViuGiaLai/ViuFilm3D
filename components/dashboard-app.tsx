@@ -22,6 +22,7 @@ import SiteHeader, { MobileNav } from "@/components/site/site-header";
 import WatchPage from "@/components/site/watch-page";
 import PublicProfilePage from "@/components/site/public-profile";
 import SocialPanel from "@/components/site/social-panel";
+import SchedulePage from "@/components/site/schedule-page";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
 import { CultivationSeal } from "@/components/ui/cultivation-seal";
 import type { Account, HistoryItem, ThemeMode } from "@/lib/app-types";
@@ -57,6 +58,7 @@ export default function DashboardApp() {
       [...movieSeed].sort((a, b) => b.id - a.id),
     ),
     [favorites, setFavorites] = useState<number[]>([]),
+    [follows, setFollows] = useState<number[]>([]),
     [history, setHistory] = useState<HistoryItem[]>([]);
   const [user, setUser] = useState<Account | null>(null),
     [ready, setReady] = useState(false),
@@ -76,6 +78,7 @@ export default function DashboardApp() {
   useEffect(() => {
     let active = true;
     setFavorites(read<number[]>(storage.favorites, []));
+    setFollows(read<number[]>("viufilm3d-follows", []));
     setHistory(read<HistoryItem[]>(storage.history, []));
     const storedAccount = read<Account | null>(storage.user, null);
     const savedTheme = localStorage.getItem(storage.theme);
@@ -125,9 +128,11 @@ export default function DashboardApp() {
             const library = await viewerGateway.library();
             if (!active) return;
             setFavorites(library.favorites);
+            setFollows(library.follows);
             setHistory(library.history);
           } catch {
             setFavorites([]);
+            setFollows([]);
             setHistory([]);
             failures.push("thư viện cá nhân");
           }
@@ -189,6 +194,28 @@ export default function DashboardApp() {
     }
     flash(
       favorites.includes(id) ? "Đã bỏ khỏi yêu thích" : "Đã thêm vào yêu thích",
+    );
+  };
+  const toggleFollow = (id: number) => {
+    const wasFollowing = follows.includes(id);
+    const next = follows.includes(id)
+      ? follows.filter((item) => item !== id)
+      : [...follows, id];
+    setFollows(next);
+    if (apiMode === "production" && user?.role === "user") {
+      void viewerGateway.setMovieFollow(id, !wasFollowing).catch(() => {
+        setFollows((current) =>
+          wasFollowing
+            ? [...new Set([...current, id])]
+            : current.filter((item) => item !== id),
+        );
+        flash("Chưa thể cập nhật theo dõi. Vui lòng thử lại.");
+      });
+    } else {
+      write("viufilm3d-follows", next);
+    }
+    flash(
+      follows.includes(id) ? "Đã bỏ theo dõi phim" : "Đã theo dõi phim",
     );
   };
   const saveWatchHistory = (item: HistoryItem, next: HistoryItem[]) => {
@@ -365,6 +392,7 @@ export default function DashboardApp() {
         theme={theme}
         toggleTheme={toggleTheme}
         onSocialOpen={() => openSocial()}
+        socialOpen={socialOpen}
         pathname={pathname}
         format={format}
         setFormat={setFormat}
@@ -433,6 +461,9 @@ export default function DashboardApp() {
           toggleFavorite={toggleFavorite}
         />
       )}
+      {pathname === "/lich-chieu" && (
+        <SchedulePage movies={movies} go={go} favorites={favorites} toggleFavorite={toggleFavorite} />
+      )}
       {pathname.startsWith("/phim/") &&
         (selected ? (
           <MovieDetail
@@ -441,6 +472,8 @@ export default function DashboardApp() {
             go={go}
             favorite={favorites.includes(selected.id)}
             toggleFavorite={toggleFavorite}
+            following={follows.includes(selected.id)}
+            toggleFollow={toggleFollow}
             user={user}
           />
         ) : (

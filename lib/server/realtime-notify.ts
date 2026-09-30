@@ -17,6 +17,14 @@ export function commentsRealtimeTopic(movieId: number): string {
   return `movie-comments:${movieId}`;
 }
 
+export function notificationsRealtimeTopic(userId: number): string {
+  const digest = createHmac("sha256", getAuthSecret())
+    .update(`notifications:${userId}`)
+    .digest("hex")
+    .slice(0, 40);
+  return `notifications:${digest}`;
+}
+
 async function publish(topic: string): Promise<void> {
   try {
     const { url, secretKey } = getSupabaseAdminEnv();
@@ -48,5 +56,11 @@ export async function notifyWorld(): Promise<void> {
 export async function notifySocial(userIds: number[]): Promise<void> {
   await Promise.all(
     [...new Set(userIds)].map((id) => publish(socialRealtimeTopic(id))),
+  );
+}
+
+export async function notifyUserNotifications(userIds: number[]): Promise<void> {
+  await Promise.all(
+    [...new Set(userIds)].map((id) => publish(notificationsRealtimeTopic(id))),
   );
 }

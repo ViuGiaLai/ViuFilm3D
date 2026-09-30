@@ -10,6 +10,7 @@ import {
   Maximize2,
   Minimize2,
   Plus,
+  Users,
 } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import type { Account, HistoryItem } from "@/lib/app-types";
@@ -17,7 +18,9 @@ import MovieComments from "@/components/site/movie-comments";
 import type { Navigate, WatchMovie } from "@/components/site/types";
 import { mediaGateway } from "@/lib/media-gateway";
 import { apiMode } from "@/lib/config";
-import CustomPlayer from "@/components/site/custom-player";
+import CustomPlayer, { type PlayerRef } from "@/components/site/custom-player";
+import { joinWatchParty, type WatchPartyEvent } from "@/lib/watch-party-client";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 type WatchPageProps = {
   movie: Movie;
@@ -51,6 +54,7 @@ export default function WatchPage({
   const searchParams = useSearchParams();
   const tapQuery = searchParams.get("tap");
   const trailerQuery = searchParams.get("trailer");
+  const roomQuery = searchParams.get("room");
   const parsedTap = tapQuery ? Number(tapQuery) : NaN;
   const isSingle = movie.totalEpisodes <= 1;
 
@@ -64,6 +68,8 @@ export default function WatchPage({
   const [episode, setEpisode] = useState(initialEp);
   const [isExpanded, setIsExpanded] = useState(false);
   const playerColumnRef = useRef<HTMLElement>(null);
+  const playerRef = useRef<PlayerRef>(null);
+  const watchPartyRef = useRef<{ broadcast: (e: WatchPartyEvent) => void } | null>(null);
   const reportedViewsRef = useRef<Set<string>>(new Set());
   const viewRetryAtRef = useRef<Map<string, number>>(new Map());
   const lastProgressReportRef = useRef<{ key: string; seconds: number }>({
@@ -80,6 +86,15 @@ export default function WatchPage({
     Boolean(trailerQuery) ||
       (movie.status === "Sắp chiếu" && Boolean(movie.trailer)),
   );
+  const [isHost, setIsHost] = useState(false);
+  const [viewerCount, setViewerCount] = useState(1);
+  const [viewers, setViewers] = useState<any[]>([]);
+  const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: "", show: false });
+
+  const showToast = (message: string) => {
+    setToast({ message, show: true });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+  };
 
   useEffect(() => {
     if (Number.isInteger(parsedTap) && parsedTap > 0) {
@@ -88,7 +103,6 @@ export default function WatchPage({
     }
   }, [parsedTap]);
 
-  // Clean URL if single movie was navigated with ?tap=1 (chỉ xóa nếu có tap=, không xóa trailer)
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
@@ -96,9 +110,59 @@ export default function WatchPage({
       window.location.search.includes("tap=")
     ) {
       const identifier = movie.slug || movie.id;
-      window.history.replaceState(null, "", `/xem/${identifier}`);
+      window.history.replaceState(null, "", `/xem/${identifier}${roomQuery ? `?room=${roomQuery}` : ""}`);
     }
-  }, [isSingle, movie.slug, movie.id]);
+  }, [isSingle, movie.slug, movie.id, roomQuery]);
+
+  // Watch Party logic
+  useEffect(() => {
+    const hostKey = localStorage.getItem(`watchparty_host_${roomQuery}`) === "true";
+    if (roomQuery) {
+      setIsHost(hostKey);
+    }
+
+    if (!roomQuery) return;
+    
+    const wp = joinWatchParty(
+      `watchparty:${roomQuery}`,
+      (event) => {
+        const player = playerRef.current;
+        if (!player) return;
+        if (event.type === "play") {
+          player.play();
+        } else if (event.type === "pause") {
+          player.pause();
+        } else if (event.type === "seek" && event.time !== undefined) {
+          player.seek(event.time);
+        } else if (event.type === "change_speed" && event.speed !== undefined) {
+          player.setSpeed?.(event.speed);
+        } else if (event.type === "change_episode" && event.episode !== undefined) {
+          selectEpisode(event.episode, true);
+        }
+      },
+      (count, viewersList) => {
+        setViewerCount(count);
+        setViewers(viewersList);
+      },
+      {
+        id: user?.id ? String(user.id) : undefined,
+        name: user?.name || "Khách",
+        avatarId: user?.avatarId,
+        avatarVersion: user?.avatarVersion,
+        avatarFrameId: user?.avatarFrameId,
+        isHost: hostKey
+      } as any
+    );
+
+    if (wp) {
+      watchPartyRef.current = { broadcast: wp.broadcast };
+    }
+
+    return () => {
+      if (wp) wp.leave();
+      watchPartyRef.current = null;
+    };
+  }, [roomQuery, user]);
 
   const trailerVideo = movie.trailer || "";
 
@@ -120,18 +184,14 @@ export default function WatchPage({
       ? movie.video
       : currentEpisodeItem?.video || (episode === 1 ? movie.video : "");
 
-  const currentEpisodeAudio = showTrailer
-    ? undefined
-    : isSingle
-      ? movie.audio
-      : currentEpisodeItem?.audio || (episode === 1 ? movie.audio : undefined);
+
 
   const [media, setMedia] = useState<{
     source: string;
     video: string;
     poster?: string;
-    subtitle?: string;
-    audio?: string;
+    subtitles?: Array<{ label: string; lang?: string; url: string }>;
+    audios?: Array<{ label: string; url: string }>;
   }>({ source: "", video: "" });
   const [mediaLoading, setMediaLoading] = useState(
     Boolean(currentEpisodeVideo),
@@ -175,19 +235,33 @@ export default function WatchPage({
         );
       });
 
-    void Promise.allSettled([
-      mediaGateway.resolve(movie.poster),
-      mediaGateway.resolve(movie.subtitle),
-      mediaGateway.resolve(currentEpisodeAudio),
-    ]).then(([poster, subtitle, audio]) => {
+    const loadMedia = async () => {
+      const posterPromise = mediaGateway.resolve(movie.poster);
+      const subsPromises = (movie.subtitles || []).map(async (s) => ({ 
+        ...s, 
+        url: await mediaGateway.resolve(s.url).catch(() => undefined) || s.url 
+      }));
+      const audiosPromises = (movie.audios || []).map(async (a) => ({ 
+        ...a, 
+        url: await mediaGateway.resolve(a.url).catch(() => undefined) || a.url 
+      }));
+      
+      const [poster, subs, audios] = await Promise.all([
+        posterPromise.catch(() => undefined),
+        Promise.all(subsPromises),
+        Promise.all(audiosPromises),
+      ]);
+      
       if (!active) return;
       setMedia((previous) => ({
         ...previous,
-        poster: poster.status === "fulfilled" ? poster.value : undefined,
-        subtitle: subtitle.status === "fulfilled" ? subtitle.value : undefined,
-        audio: audio.status === "fulfilled" ? audio.value : undefined,
+        poster,
+        subtitles: subs,
+        audios: audios,
       }));
-    });
+    };
+    
+    void loadMedia();
 
     return () => {
       active = false;
@@ -195,9 +269,9 @@ export default function WatchPage({
   }, [
     episode,
     currentEpisodeVideo,
-    currentEpisodeAudio,
     movie.poster,
-    movie.subtitle,
+    movie.subtitles,
+    movie.audios,
     showTrailer,
   ]);
 
@@ -241,15 +315,22 @@ export default function WatchPage({
       });
   };
 
-  const selectEpisode = (ep: number) => {
+  const selectEpisode = (ep: number, forceSync = false) => {
+    if (roomQuery && !isHost && !forceSync) {
+      showToast("Chỉ Chủ phòng mới có quyền chuyển tập!");
+      return;
+    }
     setEpisode(ep);
     onWatch(movie, ep);
+    if (roomQuery && isHost && !forceSync) {
+      watchPartyRef.current?.broadcast({ type: "change_episode", episode: ep, by: String(user?.id) } as any);
+    }
     const identifier = movie.slug || movie.id;
     if (typeof window !== "undefined") {
       if (movie.totalEpisodes > 1) {
-        window.history.replaceState(null, "", `/xem/${identifier}?tap=${ep}`);
+        window.history.replaceState(null, "", `/xem/${identifier}?tap=${ep}${roomQuery ? `&room=${roomQuery}` : ""}`);
       } else {
-        window.history.replaceState(null, "", `/xem/${identifier}`);
+        window.history.replaceState(null, "", `/xem/${identifier}${roomQuery ? `?room=${roomQuery}` : ""}`);
       }
     }
   };
@@ -274,7 +355,7 @@ export default function WatchPage({
     setShowTrailer(true);
     const identifier = movie.slug || movie.id;
     if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", `/xem/${identifier}?trailer=1`);
+      window.history.replaceState(null, "", `/xem/${identifier}?trailer=1${roomQuery ? `&room=${roomQuery}` : ""}`);
     }
   };
 
@@ -435,10 +516,11 @@ export default function WatchPage({
             {playbackVideo ? (
               <CustomPlayer
                 key={`player-${movie.id}-${episode}-${playbackVideo}`}
+                ref={playerRef}
                 src={playbackVideo}
                 poster={media.poster || undefined}
-                subtitle={media.subtitle || undefined}
-                audio={media.audio || undefined}
+                subtitles={media.subtitles || undefined}
+                audios={media.audios || undefined}
                 title={movie.title}
                 episodeLabel={epLabel}
                 quality={movie.quality}
@@ -452,13 +534,33 @@ export default function WatchPage({
                 persistLocalProgress={
                   apiMode === "mock" || user?.role !== "user"
                 }
+                readOnly={Boolean(roomQuery) && !isHost}
+                onUnauthorizedAction={() => showToast("Chỉ Chủ phòng mới có quyền điều khiển video!")}
+                onPlay={() => {
+                  if (!roomQuery || isHost) {
+                    watchPartyRef.current?.broadcast({ type: "play", time: 0, by: String(user?.id) });
+                  }
+                }}
                 onTimeUpdate={(currentTime, duration) => {
                   recordQualifiedView(currentTime);
                   reportPlaybackProgress(currentTime, duration);
                 }}
-                onPlaybackPause={(currentTime, duration) =>
-                  reportPlaybackProgress(currentTime, duration, true)
-                }
+                onPlaybackPause={(currentTime, duration) => {
+                  if (!roomQuery || isHost) {
+                    watchPartyRef.current?.broadcast({ type: "pause", time: currentTime, by: String(user?.id) });
+                  }
+                  reportPlaybackProgress(currentTime, duration, true);
+                }}
+                onSeek={(time) => {
+                  if (!roomQuery || isHost) {
+                    watchPartyRef.current?.broadcast({ type: "seek", time, by: String(user?.id) });
+                  }
+                }}
+                onChangeSpeed={(speed) => {
+                  if (!roomQuery || isHost) {
+                    watchPartyRef.current?.broadcast({ type: "change_speed", speed, by: String(user?.id) } as any);
+                  }
+                }}
                 onError={handlePlaybackError}
                 onEnded={() => {
                   if (!isSingle && episode < movie.totalEpisodes) {
@@ -511,6 +613,32 @@ export default function WatchPage({
                 {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                 {isExpanded ? "Thu nhỏ" : "Mở rộng"}
               </button>
+              <button
+                type="button"
+                className="action-btn"
+                style={{ marginLeft: 8 }}
+                onClick={() => {
+                  if (roomQuery) {
+                    navigator.clipboard.writeText(window.location.href).then(() => {
+                      showToast("✅ Đã sao chép link Phòng Xem Chung vào khay nhớ tạm! Bạn có thể gửi cho bạn bè ngay.");
+                    });
+                  } else {
+                    const roomCode = Math.random().toString(36).substring(2, 10);
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("room", roomCode);
+                    localStorage.setItem(`watchparty_host_${roomCode}`, "true");
+                    navigator.clipboard.writeText(url.toString()).then(() => {
+                      showToast("✅ Đã sao chép link Phòng Xem Chung vào khay nhớ tạm! Bạn có thể gửi cho bạn bè ngay.");
+                      window.history.pushState(null, "", url.toString());
+                      setTimeout(() => {
+                        window.location.href = url.toString();
+                      }, 2000);
+                    });
+                  }
+                }}
+              >
+                <Users size={14} /> {roomQuery ? "Copy Link mời" : "Xem chung"}
+              </button>
             </div>
 
             <div className="actions-right">
@@ -542,6 +670,50 @@ export default function WatchPage({
 
         {/* CỘT 3 (PHẢI): SIDEBAR THÔNG TIN PHIM THẬT */}
         <aside className="watch-col-sidebar">
+          {roomQuery && (
+            <div style={{ background: "rgba(124,58,237,0.1)", border: "1px solid #7c3aed", padding: 12, borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <strong style={{ color: "#c4b5fd" }}>Phòng xem chung</strong>
+                <span style={{ fontSize: 12, background: "#7c3aed", color: "#fff", padding: "2px 8px", borderRadius: 12 }}>
+                  <Users size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+                  {viewerCount}
+                </span>
+              </div>
+              {isHost ? (
+                <p style={{ fontSize: 13, margin: 0, color: "#a78bfa" }}>
+                  <b style={{ color: "#fff" }}>Bạn là Chủ phòng.</b> Hãy phát, tạm dừng hoặc tua để đồng bộ video cho mọi người.
+                </p>
+              ) : (
+                <p style={{ fontSize: 13, margin: 0, color: "#a78bfa" }}>
+                  Đang đồng bộ video với chủ phòng. Bạn chỉ có quyền xem.
+                </p>
+              )}
+              {viewers && viewers.length > 0 && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(124,58,237,0.3)" }}>
+                  <div style={{ fontSize: 12, color: "#a78bfa", marginBottom: 8 }}>Người đang xem:</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {viewers.map((v, idx) => (
+                      <div key={idx} style={{ background: "rgba(255,255,255,0.1)", padding: "4px 12px 4px 6px", borderRadius: 20, fontSize: 13, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ transform: 'scale(0.8)', transformOrigin: 'center', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <UserAvatar 
+                            name={v.name} 
+                            avatarId={v.avatarId} 
+                            avatarVersion={v.avatarVersion} 
+                            frameId={v.avatarFrameId} 
+                            size="small" 
+                            userId={v.id && v.id !== "undefined" ? Number(v.id) : undefined}
+                          />
+                        </div>
+                        <span style={{ fontWeight: 500 }}>
+                          {v.name} {v.isHost ? <span style={{ color: '#a78bfa', fontSize: 11 }}> (Chủ)</span> : ""} {v.id === String(user?.id) ? <span style={{ opacity: 0.7, fontSize: 11 }}> (Bạn)</span> : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <h1 className="sidebar-movie-heading">
             {movie.title} {isSingle ? "" : `| Tập ${episode}`}
           </h1>
@@ -623,6 +795,45 @@ export default function WatchPage({
         </aside>
       </div>
       <MovieComments movieId={movie.id} user={user} go={go} />
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          background: 'rgba(17, 24, 39, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid #7c3aed',
+          color: '#fff',
+          padding: '16px 24px',
+          borderRadius: 12,
+          boxShadow: '0 8px 32px rgba(124,58,237,0.2)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12,
+          maxWidth: 320,
+          animation: 'toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          lineHeight: 1.5,
+          fontSize: 14
+        }}>
+          <div style={{ background: 'rgba(124,58,237,0.2)', padding: 6, borderRadius: '50%', color: '#a78bfa' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, color: '#c4b5fd', marginBottom: 4 }}>THÔNG BÁO</div>
+            <div style={{ color: '#e5e7eb' }}>{toast.message}</div>
+          </div>
+        </div>
+      )}
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes toast-slide-in {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}} />
     </main>
   );
 }

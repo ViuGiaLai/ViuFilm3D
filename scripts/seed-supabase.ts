@@ -48,8 +48,8 @@ const toRow = (movie: Movie) => ({
   status: movie.status,
   video: movie.video,
   poster_key: movie.poster || null,
-  subtitle_key: movie.subtitle || null,
-  audio_key: movie.audio || null,
+  subtitles_data: movie.subtitles || null,
+  audios_data: movie.audios || null,
 });
 
 const toUserRow = (viewer: Viewer) => ({

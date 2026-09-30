@@ -5,6 +5,8 @@ import {
   useEffect,
   useRef,
   useState,
+  forwardRef,
+  useImperativeHandle,
   type MouseEvent,
   type TouchEvent,
 } from "react";
@@ -23,11 +25,20 @@ import {
   VolumeX,
 } from "lucide-react";
 
+export interface PlayerRef {
+  play: () => void;
+  pause: () => void;
+  seek: (time: number) => void;
+  setSpeed: (speed: number) => void;
+}
+
+type TrackInfo = { label: string; url: string; lang?: string };
+
 type CustomPlayerProps = {
   src: string;
   poster?: string;
-  subtitle?: string;
-  audio?: string;
+  subtitles?: TrackInfo[];
+  audios?: TrackInfo[];
   title: string;
   episodeLabel: string;
   quality?: string;
@@ -40,6 +51,10 @@ type CustomPlayerProps = {
   persistLocalProgress?: boolean;
   onError?: () => void;
   onEnded?: () => void;
+  onSeek?: (time: number) => void;
+  onChangeSpeed?: (speed: number) => void;
+  readOnly?: boolean;
+  onUnauthorizedAction?: () => void;
 };
 
 // SVG Rewind 10s (khớp chính xác hình 3)
@@ -132,11 +147,11 @@ function formatTime(totalSeconds: number): string {
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-export default function CustomPlayer({
+const CustomPlayer = forwardRef<PlayerRef, CustomPlayerProps>(({
   src,
   poster,
-  subtitle,
-  audio,
+  subtitles = [],
+  audios = [],
   quality = "Full HD",
   movieId,
   episodeNumber,
@@ -147,7 +162,11 @@ export default function CustomPlayer({
   persistLocalProgress = true,
   onError,
   onEnded,
-}: CustomPlayerProps) {
+  onSeek,
+  onChangeSpeed,
+  readOnly = false,
+  onUnauthorizedAction,
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -163,9 +182,8 @@ export default function CustomPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [audioTrack, setAudioTrack] = useState<"original" | "external">(
-    "original",
-  );
+  const [audioTrack, setAudioTrack] = useState<number>(-1); // -1 is original, >= 0 is external audio index
+  const [subtitleTrack, setSubtitleTrack] = useState<number>(subtitles.length > 0 ? 0 : -1);
   const [externalAudioError, setExternalAudioError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -250,7 +268,7 @@ export default function CustomPlayer({
   }>({ type: null, key: 0 });
 
   const useExternalAudio =
-    audioTrack === "external" && Boolean(audio) && !externalAudioError;
+    audioTrack >= 0 && audios.length > audioTrack && !externalAudioError;
 
   const syncExternalAudio = (force = false) => {
     const video = videoRef.current;
@@ -272,18 +290,18 @@ export default function CustomPlayer({
     syncExternalAudio(true);
     void external.play().catch(() => {
       setExternalAudioError(true);
-      setAudioTrack("original");
+      setAudioTrack(-1);
       if (videoRef.current) videoRef.current.muted = isMuted;
     });
   };
 
-  const selectAudioTrack = (track: "original" | "external") => {
+  const selectAudioTrack = (trackIndex: number) => {
     const video = videoRef.current;
     const external = audioRef.current;
     if (!video) return;
 
-    if (track === "external" && audio && !externalAudioError) {
-      setAudioTrack("external");
+    if (trackIndex >= 0 && audios.length > trackIndex && !externalAudioError) {
+      setAudioTrack(trackIndex);
       video.muted = true;
       if (external) {
         external.currentTime = video.currentTime;
@@ -293,13 +311,13 @@ export default function CustomPlayer({
         if (!video.paused) {
           void external.play().catch(() => {
             setExternalAudioError(true);
-            setAudioTrack("original");
+            setAudioTrack(-1);
             video.muted = isMuted;
           });
         }
       }
     } else {
-      setAudioTrack("original");
+      setAudioTrack(-1);
       external?.pause();
       video.muted = isMuted;
     }
@@ -322,20 +340,25 @@ export default function CustomPlayer({
     if (Math.abs(video.duration - external.duration) > 3) {
       external.pause();
       setExternalAudioError(true);
-      setAudioTrack("original");
+      setAudioTrack(-1);
       video.muted = isMuted;
     }
   };
 
   useEffect(() => {
-    setAudioTrack("original");
+    setAudioTrack(-1);
+    setSubtitleTrack(subtitles.length > 0 ? 0 : -1);
     setExternalAudioError(false);
     audioRef.current?.pause();
     if (videoRef.current) videoRef.current.muted = isMuted;
-  }, [src, audio]);
+  }, [src, audios, subtitles]);
 
   // Toggle Play / Pause
   const togglePlay = () => {
+    if (readOnly) {
+      if (onUnauthorizedAction) onUnauthorizedAction();
+      return;
+    }
     if (!videoRef.current) return;
     if (resumePrompt.show) {
       setResumePrompt((prev) => ({ ...prev, show: false }));
@@ -353,6 +376,9 @@ export default function CustomPlayer({
       setIsPlaying(false);
       setShowControls(true);
       setClickFeedback({ type: "pause", key: Date.now() });
+      if (videoRef.current) {
+        onPlaybackPause?.(videoRef.current.currentTime, videoRef.current.duration);
+      }
     }
     setTimeout(() => {
       setClickFeedback((prev) => ({ ...prev, type: null }));
@@ -391,20 +417,18 @@ export default function CustomPlayer({
   // Tua 10 giây trước / sau (Hình 3)
   const handleRewind10 = () => {
     if (!videoRef.current) return;
-    videoRef.current.currentTime = Math.max(
-      0,
-      videoRef.current.currentTime - 10,
-    );
+    const target = Math.max(0, videoRef.current.currentTime - 10);
+    videoRef.current.currentTime = target;
     syncExternalAudio(true);
+    onSeek?.(target);
   };
 
   const handleForward10 = () => {
     if (!videoRef.current) return;
-    videoRef.current.currentTime = Math.min(
-      videoRef.current.duration || duration,
-      videoRef.current.currentTime + 10,
-    );
+    const target = Math.max(0, Math.min(videoRef.current.duration || duration, videoRef.current.currentTime + 10));
+    videoRef.current.currentTime = target;
     syncExternalAudio(true);
+    onSeek?.(target);
   };
 
   // Âm lượng & Mute
@@ -430,11 +454,16 @@ export default function CustomPlayer({
 
   // Thay đổi tốc độ phát
   const handleSpeedChange = (speed: number) => {
+    if (readOnly) {
+      if (onUnauthorizedAction) onUnauthorizedAction();
+      return;
+    }
     if (!videoRef.current) return;
     videoRef.current.playbackRate = speed;
     if (audioRef.current) audioRef.current.playbackRate = speed;
     setPlaybackSpeed(speed);
     setShowSettings(false);
+    onChangeSpeed?.(speed);
   };
 
   // Picture-in-Picture
@@ -541,13 +570,22 @@ export default function CustomPlayer({
       audioRef.current.currentTime = targetTime;
     }
     setCurrentTime(targetTime);
+    onSeek?.(targetTime);
   };
 
   const handleSeekMouse = (e: MouseEvent<HTMLDivElement>) => {
+    if (readOnly) {
+      if (onUnauthorizedAction) onUnauthorizedAction();
+      return;
+    }
     seekToPosition(e.clientX);
   };
 
   const handleSeekTouch = (e: TouchEvent<HTMLDivElement>) => {
+    if (readOnly) {
+      if (onUnauthorizedAction) onUnauthorizedAction();
+      return;
+    }
     if (e.touches[0]) {
       seekToPosition(e.touches[0].clientX);
     }
@@ -622,6 +660,45 @@ export default function CustomPlayer({
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const bufferPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
+
+  useImperativeHandle(ref, () => ({
+    play: () => {
+      if (videoRef.current && videoRef.current.paused) {
+        void videoRef.current.play().catch(console.error);
+        setIsPlaying(true);
+      }
+    },
+    pause: () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+        audioRef.current?.pause();
+        setIsPlaying(false);
+      }
+    },
+    seek: (time: number) => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = time;
+        syncExternalAudio(true);
+      }
+    },
+    setSpeed: (speed: number) => {
+      if (videoRef.current) {
+        videoRef.current.playbackRate = speed;
+        if (audioRef.current) audioRef.current.playbackRate = speed;
+        setPlaybackSpeed(speed);
+      }
+    }
+  }));
+
+  useEffect(() => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      // Re-apply subtitle track if it changes
+      Array.from(video.textTracks).forEach((track, i) => {
+        track.mode = i === subtitleTrack ? "showing" : "hidden";
+      });
+    }
+  }, [subtitleTrack]);
 
   return (
     <div
@@ -706,27 +783,28 @@ export default function CustomPlayer({
           onEnded?.();
         }}
       >
-        {subtitle && (
+        {subtitles.map((sub, idx) => (
           <track
-            default
+            key={idx}
             kind="subtitles"
-            src={subtitle}
-            srcLang="vi"
-            label="Tiếng Việt"
+            src={sub.url}
+            srcLang={sub.lang || "vi"}
+            label={sub.label}
+            default={idx === subtitleTrack}
           />
-        )}
+        ))}
       </video>
-      {audio && (
+      {audios.length > 0 && audioTrack >= 0 && audios[audioTrack] && (
         <audio
           ref={audioRef}
-          src={audio}
+          src={audios[audioTrack].url}
           preload="metadata"
           className="custom-player-external-audio"
           aria-hidden="true"
           onLoadedMetadata={validateExternalAudioDuration}
           onError={() => {
             setExternalAudioError(true);
-            setAudioTrack("original");
+            setAudioTrack(-1);
             if (videoRef.current) videoRef.current.muted = isMuted;
           }}
         />
@@ -947,7 +1025,7 @@ export default function CustomPlayer({
                     </div>
                   </div>
                   <div className="settings-divider" />
-                  {audio && (
+                  {audios.length > 0 && (
                     <>
                       <div className="settings-section">
                         <span className="settings-header">Âm thanh</span>
@@ -955,28 +1033,64 @@ export default function CustomPlayer({
                           <button
                             type="button"
                             className={`speed-option-item ${
-                              audioTrack === "original" ? "selected" : ""
+                              audioTrack === -1 ? "selected" : ""
                             }`}
-                            onClick={() => selectAudioTrack("original")}
+                            onClick={() => selectAudioTrack(-1)}
                           >
                             <span>Âm thanh gốc</span>
-                            {audioTrack === "original" && <Check size={14} />}
+                            {audioTrack === -1 && <Check size={14} />}
                           </button>
+                          {audios.map((a, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className={`speed-option-item ${
+                                audioTrack === idx ? "selected" : ""
+                              }`}
+                              disabled={audioTrack === idx && externalAudioError}
+                              onClick={() => selectAudioTrack(idx)}
+                            >
+                              <span>
+                                {audioTrack === idx && externalAudioError
+                                  ? "Audio bổ sung bị lỗi"
+                                  : a.label}
+                              </span>
+                              {audioTrack === idx && <Check size={14} />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="settings-divider" />
+                    </>
+                  )}
+                  {subtitles.length > 0 && (
+                    <>
+                      <div className="settings-section">
+                        <span className="settings-header">Phụ đề</span>
+                        <div className="speed-options-list">
                           <button
                             type="button"
                             className={`speed-option-item ${
-                              audioTrack === "external" ? "selected" : ""
+                              subtitleTrack === -1 ? "selected" : ""
                             }`}
-                            disabled={externalAudioError}
-                            onClick={() => selectAudioTrack("external")}
+                            onClick={() => setSubtitleTrack(-1)}
                           >
-                            <span>
-                              {externalAudioError
-                                ? "Audio bổ sung bị lỗi"
-                                : "Audio lồng tiếng"}
-                            </span>
-                            {audioTrack === "external" && <Check size={14} />}
+                            <span>Tắt phụ đề</span>
+                            {subtitleTrack === -1 && <Check size={14} />}
                           </button>
+                          {subtitles.map((sub, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className={`speed-option-item ${
+                                subtitleTrack === idx ? "selected" : ""
+                              }`}
+                              onClick={() => setSubtitleTrack(idx)}
+                            >
+                              <span>{sub.label}</span>
+                              {subtitleTrack === idx && <Check size={14} />}
+                            </button>
+                          ))}
                         </div>
                       </div>
                       <div className="settings-divider" />
@@ -1014,4 +1128,7 @@ export default function CustomPlayer({
       </div>
     </div>
   );
-}
+});
+
+CustomPlayer.displayName = "CustomPlayer";
+export default CustomPlayer;

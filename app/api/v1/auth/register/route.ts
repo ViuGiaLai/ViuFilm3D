@@ -47,9 +47,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Supabase may require email verification. Never expose whether an email
-    // already exists in Auth; the user can sign in after confirmation.
-    return apiData({ confirmationRequired: !data.session }, { status: 201 });
+    const userAlreadyExists = data.user?.identities && data.user.identities.length === 0;
+
+    // Supabase may require email verification. We expose userAlreadyExists 
+    // so the frontend can prompt the user to resend confirmation email.
+    return apiData(
+      { 
+        confirmationRequired: !data.session,
+        userAlreadyExists,
+      }, 
+      { status: userAlreadyExists ? 200 : 201 }
+    );
   } catch (error) {
     return apiError(error, "Không thể tạo tài khoản.");
   }

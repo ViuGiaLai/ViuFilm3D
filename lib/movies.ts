@@ -31,8 +31,8 @@ export type Movie = {
   trailer?: string;
   episodes?: EpisodeItem[];
   poster?: string;
-  subtitle?: string;
-  audio?: string;
+  subtitles?: Array<{ label: string; lang: string; url: string }>;
+  audios?: Array<{ label: string; url: string }>;
 };
 
 const slugify = (value: string) =>
@@ -85,6 +85,8 @@ const m = (
   updateDay,
   status,
   video: "/videos/viufilm3d-demo.mp4",
+  subtitles: [],
+  audios: [],
 });
 
 export const genres = [

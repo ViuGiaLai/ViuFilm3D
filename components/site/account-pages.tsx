@@ -47,6 +47,7 @@ export default function LoginPage({
 }: LoginPageProps) {
   const isProduction = apiMode === "production";
   const [registering, setRegistering] = useState(false);
+  const [needResendConfirm, setNeedResendConfirm] = useState(false);
   const [name, setName] = useState("");
   const [notice, setNotice] = useState("");
   const [email, setEmail] = useState(isProduction ? "" : "user@gmail.com"),
@@ -66,6 +67,14 @@ export default function LoginPage({
             email.trim().toLowerCase(),
             password,
           );
+          if (result.userAlreadyExists) {
+            setNotice(
+              "Tài khoản đã tồn tại. Nếu bạn chưa xác nhận email, hãy gửi lại email xác nhận.",
+            );
+            setNeedResendConfirm(true);
+            setRegistering(false);
+            return;
+          }
           if (result.confirmationRequired) {
             setNotice(
               "Tài khoản đã được gửi yêu cầu đăng ký. Hãy kiểm tra email xác nhận, sau đó đăng nhập.",
@@ -114,6 +123,25 @@ export default function LoginPage({
     }
     onLogin({ email: viewer.email, name: viewer.name, role: viewer.role });
     setSubmitting(false);
+  };
+  
+  const resendConfirmation = async () => {
+    setError("");
+    setNotice("");
+    setSubmitting(true);
+    try {
+      await authGateway.resendConfirmation(email.trim().toLowerCase());
+      setNotice("Email xác nhận đã được gửi lại. Vui lòng kiểm tra hộp thư.");
+      setNeedResendConfirm(false);
+    } catch (submitError) {
+      setError(
+        submitError instanceof ApiRequestError
+          ? submitError.message
+          : "Không thể gửi lại email xác nhận lúc này."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
   return (
     <main className="login-page">
@@ -168,6 +196,7 @@ export default function LoginPage({
             onChange={(event) => {
               setEmail(event.target.value);
               setError("");
+              setNeedResendConfirm(false);
             }}
           />
         </label>
@@ -194,7 +223,7 @@ export default function LoginPage({
         <button
           type="submit"
           className="primary-btn full"
-          disabled={submitting}
+          disabled={submitting || needResendConfirm}
         >
           {submitting
             ? "Đang xử lý..."
@@ -202,6 +231,17 @@ export default function LoginPage({
               ? "Tạo tài khoản"
               : "Đăng nhập"}
         </button>
+        {needResendConfirm && (
+          <button
+            type="button"
+            className="glass-btn full"
+            style={{ marginTop: "0.5rem" }}
+            onClick={resendConfirmation}
+            disabled={submitting}
+          >
+            Gửi lại email xác nhận
+          </button>
+        )}
         {isProduction && allowRegistration && (
           <button
             type="button"
@@ -210,6 +250,7 @@ export default function LoginPage({
               setRegistering((value) => !value);
               setError("");
               setNotice("");
+              setNeedResendConfirm(false);
             }}
           >
             {registering

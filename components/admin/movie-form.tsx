@@ -894,16 +894,16 @@ export default function MovieForm({ movie, close, save }: MovieFormProps) {
             movieSlug={form.slug || toSlug(form.title) || ""}
             category="subtitle"
             label="Phụ đề (VTT)"
-            value={form.subtitle}
-            onChange={(subtitle) => setForm((prev) => ({ ...prev, subtitle }))}
+            value={form.subtitles?.[0]?.url || ""}
+            onChange={(subtitle) => setForm((prev) => ({ ...prev, subtitles: [{ label: "Tiếng Việt", lang: "vi", url: subtitle }] }))}
           />
           <MediaUploader
             movieId={form.id}
             movieSlug={form.slug || toSlug(form.title) || ""}
             category="audio"
             label="Audio lồng tiếng thay thế (Tùy chọn)"
-            value={form.audio}
-            onChange={(audio) => setForm((prev) => ({ ...prev, audio }))}
+            value={form.audios?.[0]?.url || ""}
+            onChange={(audio) => setForm((prev) => ({ ...prev, audios: [{ label: "Audio bổ sung", url: audio }] }))}
             infoBadge="Bỏ trống để dùng tiếng gốc trong video. Audio riêng phải cùng thời lượng với video."
           />
         </div>

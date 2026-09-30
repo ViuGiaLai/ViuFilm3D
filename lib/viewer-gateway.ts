@@ -4,7 +4,7 @@ import { readStorage, writeStorage } from "@/lib/client-storage";
 import type { HistoryItem } from "@/lib/app-types";
 import type { CommentPage, MovieComment } from "@/lib/comments";
 
-export type ViewerLibrary = { favorites: number[]; history: HistoryItem[] };
+export type ViewerLibrary = { favorites: number[]; history: HistoryItem[]; follows: number[] };
 
 const mockCommentsKey = (movieId: number) => `viufilm3d-comments-${movieId}`;
 const pendingHistorySaves = new Map<number, Promise<unknown>>();
@@ -17,6 +17,17 @@ export const viewerGateway = {
   async setFavorite(movieId: number, favorite: boolean) {
     await requestApi(`/me/favorites/${movieId}`, {
       method: favorite ? "PUT" : "DELETE",
+    });
+  },
+
+  async movieFollows(): Promise<number[]> {
+    return requestApi<number[]>("/me/follows", { cache: "no-store" });
+  },
+
+  async setMovieFollow(movieId: number, following: boolean) {
+    await requestApi(following ? "/me/follows" : `/me/follows?movieId=${movieId}`, {
+      method: following ? "POST" : "DELETE",
+      body: following ? JSON.stringify({ movieId }) : undefined,
     });
   },
 

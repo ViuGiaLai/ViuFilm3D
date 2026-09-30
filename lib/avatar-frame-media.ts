@@ -23,7 +23,7 @@ export function frameMedia(
   };
 }
 export const avatarFrameMedia: Record<string, FrameMedia | undefined> = {
-  // Phàm Nhân: add "realm-0": frameMedia("realms", "realm-0", 1, 1.35),
-  "realm-0": frameMedia("realms", "realm-0", 1, 1.35),
+  // User-supplied jade dragon animation; previous realm-0 versions removed.
+  "realm-0": frameMedia("realms", "realm-0", 5, 1.75),
   "realm-14": frameMedia("realms", "realm-14", 1, 1.55),
 };

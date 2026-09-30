@@ -3,6 +3,8 @@ import { parseMovie } from "@/lib/server/movie-validation";
 import { hasAdminSession } from "@/lib/server/admin-session";
 import { apiData, apiError, apiProblem } from "@/lib/server/api-response";
 import { ValidationError } from "@/lib/server/errors";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { notifyUserNotifications } from "@/lib/server/realtime-notify";
 
 type MovieRouteContext = { params: Promise<{ id: string }> };
 
@@ -37,7 +39,32 @@ export async function PUT(request: Request, context: MovieRouteContext) {
       return apiProblem("Mã phim trên URL và nội dung không khớp.", 400);
     }
 
-    return apiData(await movieRepository.save(movie));
+    const oldMovie = await movieRepository.find(id);
+    const savedMovie = await movieRepository.save(movie);
+
+    if (oldMovie && savedMovie.episode > oldMovie.episode) {
+      const db = createSupabaseAdminClient();
+      const { data } = await db
+        .from("movie_follows")
+        .select("user_id")
+        .eq("movie_id", id)
+        .eq("notify_new_episode", true);
+
+      if (data && data.length > 0) {
+        const userIds = data.map((d) => Number(d.user_id));
+        const notifications = userIds.map((userId) => ({
+          user_id: userId,
+          type: "new_episode",
+          content: `Phim ${savedMovie.title} vừa cập nhật tập ${savedMovie.episode}!`,
+          link: `/phim/${savedMovie.slug}`,
+        }));
+        await db.from("notifications").insert(notifications);
+        // Avoid awaiting the broadcast so it doesn't block the request
+        notifyUserNotifications(userIds).catch(console.error);
+      }
+    }
+
+    return apiData(savedMovie);
   } catch (error) {
     return apiError(error, "Không thể lưu phim.");
   }

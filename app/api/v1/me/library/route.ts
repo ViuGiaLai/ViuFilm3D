@@ -8,7 +8,7 @@ export async function GET() {
     const viewer = await getViewerIdentity();
     if (!viewer) return apiProblem("Vui lòng đăng nhập.", 401);
     const db = createSupabaseAdminClient();
-    const [favorites, history] = await Promise.all([
+    const [favorites, history, follows] = await Promise.all([
       db.from("viewer_favorites").select("movie_id").eq("user_id", viewer.id),
       db
         .from("viewer_history")
@@ -18,11 +18,14 @@ export async function GET() {
         .eq("user_id", viewer.id)
         .order("watched_at", { ascending: false })
         .limit(50),
+      db.from("movie_follows").select("movie_id").eq("user_id", viewer.id),
     ]);
     if (favorites.error) throw favorites.error;
     if (history.error) throw history.error;
+    if (follows.error) throw follows.error;
     return apiData({
       favorites: (favorites.data ?? []).map((row) => Number(row.movie_id)),
+      follows: (follows.data ?? []).map((row) => Number(row.movie_id)),
       history: (history.data ?? []).map((row): HistoryItem => ({
         movieId: Number(row.movie_id),
         episode: Number(row.episode),

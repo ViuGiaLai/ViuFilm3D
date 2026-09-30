@@ -216,7 +216,7 @@ export function parseMovie(value: unknown): Movie {
     episodes: episodes && episodes.length > 0 ? episodes : undefined,
     poster: optionalMedia(movie.poster),
     trailer: optionalMedia(movie.trailer),
-    subtitle: optionalMedia(movie.subtitle),
-    audio: optionalMedia(movie.audio),
+    subtitles: movie.subtitles,
+    audios: movie.audios,
   };
 }

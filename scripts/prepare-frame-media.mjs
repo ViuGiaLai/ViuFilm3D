@@ -8,7 +8,9 @@ const version = process.argv[4] ?? "1";
 const collection = process.argv[5] ?? "realms";
 const scale = Number(process.argv[6] ?? "1.35");
 if (!source)
-  throw new Error("Pass the original WebP path as the first argument.");
+  throw new Error(
+    "Pass the original image path as the first argument (WebP, GIF or PNG).",
+  );
 if (!/^[a-z][a-z0-9-]*$/.test(frameId) || frameId === "none")
   throw new Error(
     "Use a stable frame ID from lib/avatar-frames.ts (e.g. realm-0).",
@@ -29,7 +31,15 @@ const root = path.resolve(
 const archive = path.resolve(
   `assets/avatar-frames/sources/${frameId}/v${version}`,
 );
-for (const target of [root, archive]) {
+// An existing source folder is normal when the user places their artwork there.
+// Protect published versions and the original file, not the source directory.
+const original = path.join(
+  archive,
+  `original${path.extname(source).toLowerCase() || ".img"}`,
+);
+const sameOriginal =
+  path.resolve(source).toLowerCase() === original.toLowerCase();
+for (const target of [root, ...(sameOriginal ? [] : [original])]) {
   const exists = await access(target).then(
     () => true,
     () => false,
@@ -39,10 +49,28 @@ for (const target of [root, archive]) {
       `Already exists: ${target}. Use a new version; existing assets are preserved.`,
     );
 }
-await sharp(source, { animated: true }).metadata();
+const metadata = await sharp(source, { animated: true }).metadata();
+const { data: firstFrame, info } = await sharp(source)
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+let transparentPixels = 0;
+for (let i = 3; i < firstFrame.length; i += 4) {
+  if (firstFrame[i] < 32) transparentPixels++;
+}
+if (transparentPixels / (info.width * info.height) < 0.01) {
+  throw new Error(
+    "Avatar frame has no usable transparent background in its first frame. A checkerboard drawn inside the image is NOT transparency. Export the original artwork with real alpha; no files have been created.",
+  );
+}
+if (metadata.width !== (metadata.pageHeight ?? metadata.height)) {
+  console.warn(
+    "Non-square frame canvas: use a square transparent canvas for predictable avatar alignment.",
+  );
+}
 await mkdir(root, { recursive: true });
 await mkdir(archive, { recursive: true });
-await copyFile(source, path.join(archive, "original.webp"));
+if (!sameOriginal) await copyFile(source, original, 1);
 await sharp(source, { animated: true })
   .resize({ width: 320 })
   .webp({ quality: 82, effort: 5 })

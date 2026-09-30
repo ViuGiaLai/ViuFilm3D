@@ -53,7 +53,7 @@ Sửa một dòng:
 "realm-0": frameMedia("realms", "realm-0", 2, 1.35),
 ```
 
-Script từ chối thư mục phiên bản đã tồn tại. Quay lại bản cũ bằng cách đổi 2 về 1.
+Script từ chối phiên bản đã có trong public và không ghi đè file gốc đã lưu. Thư mục sources có sẵn để đặt ảnh đầu vào vẫn được phép. Bản gốc giữ đúng đuôi file (original.gif, original.webp hoặc original.png). Quay lại bản cũ bằng cách đổi 2 về 1.
 
 ## Các viền khác
 
@@ -80,7 +80,18 @@ node scripts/prepare-frame-media.mjs "D:/Downloads/hoa-linh.webp" fire 1 element
 
 ## Không che avatar
 
+### Tạo chuyển động từ viền tĩnh trong suốt
+
+Phàm Nhân hiện dùng v5 từ file `jade_dragon_avatar_border_animated_q88.webp` người dùng cung cấp, giữ chuyển động của nguồn. Bản gốc tại `assets/avatar-frames/sources/realm-0/v5/original.webp`; bản web tại `public/assets/avatar-frames/realms/realm-0/v5/`. Các bản Phàm Nhân v1–v4 đã được xóa theo yêu cầu. Lần thay tiếp theo dùng v6.
+
+```powershell
+node scripts/animate-frame-media.mjs "D:/Downloads/vien-tinh-trong-suot.png" fire 2 elements
+```
+
+Script này chỉ dùng khi muốn tạo animation mới từ ảnh tĩnh, không cần chạy cho file Phàm Nhân hiện tại. Nó không ghi đè phiên bản đã có. Hình viền giữ nguyên vị trí; chỉ ánh sáng chuyển động, alpha phần giữa được giữ nguyên. Chế độ giảm chuyển động dùng poster tĩnh.
+
 - Dùng ảnh vuông, nền trong suốt và phần giữa rỗng; không ghép sẵn khuôn mặt.
+- Nền caro phải là nền của trình xem, không được vẽ sẵn vào ảnh. Script kiểm tra alpha khung đầu và từ chối ảnh không có vùng trong suốt đáng kể trước khi tạo file.
 - `scale`: 1.35 nghĩa là viền rộng 135% avatar. Tăng nếu lỗ giữa nhỏ; giảm nếu viền lấn bên cạnh. Script cho phép 1–2.
 - `poster.webp` là ảnh tĩnh cùng viền; script tạo từ khung đầu.
 - Nếu ảnh không tải được, hệ thống dùng SVG dự phòng.

@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
+  Compass,
+  Home,
   LogOut,
   Menu,
   MessageCircle,
+  Bell,
   Moon,
   Search,
   Settings,
@@ -17,6 +20,7 @@ import {
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { socialGateway } from "@/lib/social-gateway";
+import { notificationGateway, type NotificationInbox } from "@/lib/notification-gateway";
 import { subscribeToInvalidation } from "@/lib/realtime-client";
 import { apiMode } from "@/lib/config";
 import type { SocialInbox } from "@/lib/social-types";
@@ -31,6 +35,7 @@ import type {
 
 type SiteHeaderProps = HeaderProps & {
   onSocialOpen: () => void;
+  socialOpen?: boolean;
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
   mobile: () => void;
@@ -58,6 +63,7 @@ export default function SiteHeader({
   theme,
   toggleTheme,
   onSocialOpen,
+  socialOpen = false,
   pathname = "/",
   format = "all",
   setFormat,
@@ -72,7 +78,10 @@ export default function SiteHeader({
 }: SiteHeaderProps) {
   const [genreOpen, setGenreOpen] = useState(false);
   const [socialInbox, setSocialInbox] = useState<SocialInbox | null>(null);
+  const [notificationInbox, setNotificationInbox] = useState<NotificationInbox | null>(null);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const genreDropdownRef = useRef<HTMLDivElement>(null);
+  const notificationDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user?.id || apiMode !== "production") return;
@@ -90,12 +99,29 @@ export default function SiteHeader({
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("viufilm3d:social-updated", refresh);
     const fallback = window.setInterval(refresh, 45_000);
+
+    const refreshNotifications = () => {
+      if (document.visibilityState !== "visible") return;
+      void notificationGateway.inbox().then(
+        (value) => {
+          if (active) setNotificationInbox(value);
+        },
+        () => undefined,
+      );
+    };
+    refreshNotifications();
+    window.addEventListener("viufilm3d:notifications-updated", refreshNotifications);
+    const fallbackNotif = window.setInterval(refreshNotifications, 60_000);
+
     return () => {
       active = false;
       setSocialInbox(null);
+      setNotificationInbox(null);
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("viufilm3d:social-updated", refresh);
+      window.removeEventListener("viufilm3d:notifications-updated", refreshNotifications);
       window.clearInterval(fallback);
+      window.clearInterval(fallbackNotif);
     };
   }, [user?.id]);
 
@@ -107,12 +133,25 @@ export default function SiteHeader({
   }, [socialInbox?.realtimeTopic]);
 
   useEffect(() => {
+    if (!notificationInbox?.realtimeTopic || apiMode !== "production") return;
+    return subscribeToInvalidation(notificationInbox.realtimeTopic, () => {
+      window.dispatchEvent(new Event("viufilm3d:notifications-updated"));
+    });
+  }, [notificationInbox?.realtimeTopic]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         genreDropdownRef.current &&
         !genreDropdownRef.current.contains(event.target as Node)
       ) {
         setGenreOpen(false);
+      }
+      if (
+        notificationDropdownRef.current &&
+        !notificationDropdownRef.current.contains(event.target as Node)
+      ) {
+        setNotificationOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -129,8 +168,9 @@ export default function SiteHeader({
   };
 
   return (
-    <header className="ha-header">
-      <div className="ha-container ha-header-inner">
+    <>
+      <header className="ha-header">
+        <div className="ha-container ha-header-inner">
         <button
           type="button"
           className="mobile-menu"
@@ -197,6 +237,67 @@ export default function SiteHeader({
                     </span>
                   )}
               </button>
+              <div className="notification-wrapper" ref={notificationDropdownRef}>
+                <button
+                  className="social-trigger"
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  title="Thông báo"
+                  aria-label="Mở thông báo"
+                >
+                  <Bell />
+                  {notificationInbox && notificationInbox.unreadCount > 0 && (
+                    <span className="social-trigger-badge">
+                      {Math.min(99, notificationInbox.unreadCount)}
+                    </span>
+                  )}
+                </button>
+                {notificationOpen && notificationInbox && (
+                  <div className="notification-dropdown">
+                    <div className="notification-header">
+                      <h3>Thông báo</h3>
+                      {notificationInbox.unreadCount > 0 && (
+                        <button
+                          onClick={() => {
+                            void notificationGateway.markAsRead();
+                            setNotificationInbox({ ...notificationInbox, unreadCount: 0, items: notificationInbox.items.map((i) => ({ ...i, is_read: true })) });
+                          }}
+                        >
+                          Đánh dấu đã đọc
+                        </button>
+                      )}
+                    </div>
+                    <div className="notification-list">
+                      {notificationInbox.items.length === 0 ? (
+                        <div className="notification-empty">Không có thông báo nào</div>
+                      ) : (
+                        notificationInbox.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`notification-item ${!item.is_read ? "unread" : ""}`}
+                            onClick={() => {
+                              if (!item.is_read) {
+                                void notificationGateway.markAsRead(item.id);
+                                setNotificationInbox({
+                                  ...notificationInbox,
+                                  unreadCount: Math.max(0, notificationInbox.unreadCount - 1),
+                                  items: notificationInbox.items.map((i) => i.id === item.id ? { ...i, is_read: true } : i)
+                                });
+                              }
+                              if (item.link) {
+                                setNotificationOpen(false);
+                                go(item.link);
+                              }
+                            }}
+                          >
+                            <p>{item.content}</p>
+                            <span className="notification-time">{new Date(item.created_at).toLocaleDateString("vi-VN")}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               {user.role === "admin" && (
                 <button
                   onClick={() => go("/admin")}
@@ -240,6 +341,15 @@ export default function SiteHeader({
             }}
           >
             Phim mới
+          </button>
+          <button
+            className={pathname === "/lich-chieu" ? "active" : ""}
+            onClick={() => {
+              resetFilters();
+              go("/lich-chieu");
+            }}
+          >
+            Lịch chiếu
           </button>
           <div
             className="genre-dropdown-wrap"
@@ -355,7 +465,49 @@ export default function SiteHeader({
           </button>
         </div>
       </nav>
-    </header>
+      </header>
+      <nav className="mobile-bottom-nav">
+        <button
+          className={pathname === "/" && !socialOpen ? "active" : ""}
+          onClick={() => {
+            resetFilters();
+            go("/");
+          }}
+        >
+          <Home size={22} />
+          <span>Trang chủ</span>
+        </button>
+        <button
+          className={pathname === "/phim" && !socialOpen ? "active" : ""}
+          onClick={() => go("/phim")}
+        >
+          <Compass size={22} />
+          <span>Khám phá</span>
+        </button>
+        <button className={socialOpen ? "active" : ""} onClick={onSocialOpen}>
+          <div className="social-trigger-icon">
+            <MessageCircle size={22} />
+            {socialInbox &&
+              socialInbox.unreadCount + socialInbox.incoming.length > 0 && (
+                <span className="social-trigger-badge">
+                  {Math.min(
+                    99,
+                    socialInbox.unreadCount + socialInbox.incoming.length,
+                  )}
+                </span>
+              )}
+          </div>
+          <span>Bằng hữu</span>
+        </button>
+        <button
+          className={pathname === "/tai-khoan" && !socialOpen ? "active" : ""}
+          onClick={() => go(user ? "/tai-khoan" : "/dang-nhap")}
+        >
+          <User size={22} />
+          <span>{user ? "Cá nhân" : "Đăng nhập"}</span>
+        </button>
+      </nav>
+    </>
   );
 }
 
@@ -451,6 +603,15 @@ export function MobileNav({
         >
           Phim mới
         </button>
+        <button
+          className={pathname === "/lich-chieu" ? "active" : ""}
+          onClick={() => {
+            resetFilters();
+            go("/lich-chieu");
+          }}
+        >
+          Lịch chiếu
+        </button>
         <div className="mobile-genre-group">
           <button
             type="button"
@@ -483,15 +644,6 @@ export function MobileNav({
           )}
         </div>
         <button
-          className={pathname === "/phim" && sort === "views" ? "active" : ""}
-          onClick={() => {
-            setSort?.("views");
-            go("/phim");
-          }}
-        >
-          Đang hot
-        </button>
-        <button
           className={
             pathname === "/phim" && format === "series" ? "active" : ""
           }
@@ -514,52 +666,13 @@ export function MobileNav({
           Phim lẻ (Bản Full)
         </button>
         <button
-          className={
-            pathname === "/phim" && statusFilter === "Hoàn thành"
-              ? "active"
-              : ""
-          }
-          onClick={() => {
-            setStatusFilter?.("Hoàn thành");
-            go("/phim");
-          }}
-        >
-          Hoàn thành
-        </button>
-        <button
-          className={pathname === "/phim" && onlyFree ? "active" : ""}
-          onClick={() => {
-            setOnlyFree?.(!onlyFree);
-            go("/phim");
-          }}
-        >
-          Phim miễn phí
-        </button>
-        <button
-          className={pathname === "/yeu-thich" ? "active" : ""}
-          onClick={() => go("/yeu-thich")}
-        >
-          Phim yêu thích
-        </button>
-        <button
           className={pathname === "/lich-su" ? "active" : ""}
           onClick={() => go("/lich-su")}
         >
           Lịch sử xem
         </button>
-        <button onClick={toggleTheme}>
-          {theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
-        </button>
         {user ? (
           <>
-            <button
-              onClick={() => {
-                close();
-                onSocialOpen();
-              }}
-            >
-              Bằng hữu và mật thư
-            </button>
             <button onClick={() => go("/tai-khoan")}>Tài khoản</button>
             {user.role === "admin" && (
               <button onClick={() => go("/admin")}>Quản trị</button>

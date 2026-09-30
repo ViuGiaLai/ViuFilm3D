@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { CalendarDays, Clock3, Eye, Heart, Play, Star } from "lucide-react";
+import { CalendarDays, Clock3, Eye, Heart, Play, Star, Bell, Film } from "lucide-react";
 import { MovieArt } from "@/components/ui/movie-art";
 import { SectionTitle } from "@/components/site/home-page";
 import { formatCompactNumber as compact } from "@/lib/format";
@@ -20,6 +20,8 @@ type MovieDetailProps = {
   go: Navigate;
   favorite: boolean;
   toggleFavorite: ToggleFavorite;
+  following: boolean;
+  toggleFollow: (id: number) => void;
   user: Account | null;
 };
 
@@ -29,6 +31,8 @@ export default function MovieDetail({
   go,
   favorite,
   toggleFavorite,
+  following,
+  toggleFollow,
   user,
 }: MovieDetailProps) {
   return (
@@ -94,11 +98,12 @@ export default function MovieDetail({
                     </button>
                   ) : null}
                   <button
-                    className="glass-btn"
+                    className="glass-btn icon-btn"
                     disabled
+                    title="Phim sắp chiếu"
                     style={{ opacity: 0.7, cursor: "not-allowed" }}
                   >
-                    <Clock3 size={15} /> Sắp chiếu
+                    <Clock3 size={20} />
                   </button>
                 </>
               ) : (
@@ -111,7 +116,7 @@ export default function MovieDetail({
                   </button>
                   {movie.trailer && (
                     <button
-                      className="glass-btn"
+                      className="glass-btn icon-btn"
                       onClick={() =>
                         go(`/xem/${movie.slug || movie.id}?trailer=1`)
                       }
@@ -122,17 +127,24 @@ export default function MovieDetail({
                         borderColor: "rgba(167,139,250,0.4)",
                       }}
                     >
-                      🎬 Trailer
+                      <Film size={20} />
                     </button>
                   )}
                 </>
               )}
               <button
-                className={`glass-btn ${favorite ? "liked" : ""}`}
+                className={`glass-btn icon-btn ${favorite ? "liked" : ""}`}
                 onClick={() => toggleFavorite(movie.id)}
+                title={favorite ? "Bỏ yêu thích" : "Yêu thích"}
               >
-                <Heart fill={favorite ? "currentColor" : "none"} />{" "}
-                {favorite ? "Đã yêu thích" : "Yêu thích"}
+                <Heart size={20} fill={favorite ? "currentColor" : "none"} />
+              </button>
+              <button
+                className={`glass-btn icon-btn ${following ? "liked" : ""}`}
+                onClick={() => toggleFollow(movie.id)}
+                title={following ? "Bỏ theo dõi (Ngừng nhận thông báo)" : "Theo dõi (Nhận thông báo khi có tập mới)"}
+              >
+                <Bell size={20} fill={following ? "currentColor" : "none"} />
               </button>
             </div>
             {movie.description && (

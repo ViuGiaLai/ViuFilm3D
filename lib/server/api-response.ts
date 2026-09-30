@@ -18,5 +18,5 @@ export function apiError(error: unknown, fallback: string) {
   }
 
   console.error(error);
-  return apiProblem(fallback, 500);
+  return apiProblem(error instanceof Error ? error.message : fallback, 500);
 }
