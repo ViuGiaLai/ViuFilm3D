@@ -3,16 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  ArrowRight,
   Check,
   ChevronLeft,
   ChevronRight,
   Film,
+  LogOut,
   Maximize2,
   Minimize2,
   Plus,
+  Search,
+  Share2,
   Users,
+  X,
 } from "lucide-react";
-import type { Movie } from "@/lib/movies";
+import { movieSeed, type Movie } from "@/lib/movies";
 import type { Account, HistoryItem } from "@/lib/app-types";
 import MovieComments from "@/components/site/movie-comments";
 import type { Navigate, WatchMovie } from "@/components/site/types";
@@ -42,6 +47,7 @@ type WatchPageProps = {
 
 export default function WatchPage({
   movie,
+  movies = [],
   go,
   onWatch,
   onView,
@@ -91,10 +97,59 @@ export default function WatchPage({
   const [viewerCount, setViewerCount] = useState(1);
   const [viewers, setViewers] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: "", show: false });
+  const [showMoviePicker, setShowMoviePicker] = useState(false);
+  const [movieSearch, setMovieSearch] = useState("");
 
   const showToast = (message: string) => {
     setToast({ message, show: true });
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+  };
+
+  const handleHostChangeMovie = (targetMovie: Movie) => {
+    if (!roomQuery || !isHost) return;
+    if (targetMovie.id === movie.id) {
+      setShowMoviePicker(false);
+      return;
+    }
+    const targetSlug = targetMovie.slug || targetMovie.id;
+    watchPartyRef.current?.broadcast({
+      type: "change_movie",
+      movieId: targetMovie.id,
+      movieSlug: String(targetSlug),
+      movieTitle: targetMovie.title,
+      episode: 1,
+      by: String(user?.id),
+    });
+    showToast(`🎬 Đang chuyển cả phòng sang: ${targetMovie.title}...`);
+    setShowMoviePicker(false);
+    setTimeout(() => {
+      go(`/xem/${targetSlug}?tap=1&room=${roomQuery}`);
+    }, 400);
+  };
+
+  const handleCloseRoom = () => {
+    if (!roomQuery) return;
+    if (window.confirm("Bạn có chắc chắn muốn đóng phòng xem chung cho tất cả thành viên?")) {
+      watchPartyRef.current?.broadcast({
+        type: "room_closed",
+        by: String(user?.id),
+      });
+      localStorage.removeItem(`watchparty_host_${roomQuery}`);
+      showToast("Đã đóng phòng xem chung.");
+      const identifier = movie.slug || movie.id;
+      setTimeout(() => {
+        go(`/xem/${identifier}`);
+      }, 300);
+    }
+  };
+
+  const handleLeaveRoom = () => {
+    if (!roomQuery) return;
+    showToast("Bạn đã rời phòng xem chung.");
+    const identifier = movie.slug || movie.id;
+    setTimeout(() => {
+      go(`/xem/${identifier}`);
+    }, 300);
   };
 
   useEffect(() => {
@@ -183,6 +238,24 @@ export default function WatchPage({
             if (Math.abs(cur - event.time) > 2.5) {
               player.seek(event.time);
             }
+          }
+        } else if (event.type === "change_movie") {
+          // Chủ phòng đã đổi sang bộ phim khác! Cả phòng cùng chuyển sang phim mới
+          if (!hostKey) {
+            showToast(`🎬 Chủ phòng đang chuyển sang: ${event.movieTitle || "phim mới"}...`);
+            const targetSlug = event.movieSlug || event.movieId;
+            setTimeout(() => {
+              go(`/xem/${targetSlug}?tap=${event.episode || 1}&room=${roomQuery}`);
+            }, 500);
+          }
+        } else if (event.type === "room_closed") {
+          // Chủ phòng đã đóng phòng xem chung
+          if (!hostKey) {
+            showToast("ℹ️ Chủ phòng đã đóng phòng xem chung.");
+            const identifier = movie.slug || movie.id;
+            setTimeout(() => {
+              go(`/xem/${identifier}`);
+            }, 600);
           }
         }
       },
@@ -485,6 +558,17 @@ export default function WatchPage({
     onProgress(movie, episode, currentTime, duration);
   };
 
+  const allMoviesList: Movie[] = movies && movies.length > 0 ? movies : movieSeed;
+  const filteredMovies = allMoviesList.filter((m: Movie) => {
+    if (!movieSearch.trim()) return true;
+    const term = movieSearch.toLowerCase();
+    return (
+      m.title.toLowerCase().includes(term) ||
+      m.originalTitle?.toLowerCase().includes(term) ||
+      m.genres?.some((g: string) => g.toLowerCase().includes(term))
+    );
+  });
+
   return (
     <main
       className={`watch-page-container ${isExpanded ? "theater-mode" : ""}`}
@@ -707,17 +791,37 @@ export default function WatchPage({
                     url.searchParams.set("room", roomCode);
                     localStorage.setItem(`watchparty_host_${roomCode}`, "true");
                     navigator.clipboard.writeText(url.toString()).then(() => {
-                      showToast("✅ Đã sao chép link Phòng Xem Chung vào khay nhớ tạm! Bạn có thể gửi cho bạn bè ngay.");
+                      showToast("✅ Đã tạo phòng & sao chép link! Bạn có thể gửi cho bạn bè ngay.");
                       window.history.pushState(null, "", url.toString());
                       setTimeout(() => {
                         window.location.href = url.toString();
-                      }, 2000);
+                      }, 1000);
                     });
                   }
                 }}
               >
                 <Users size={14} /> {roomQuery ? "Copy Link mời" : "Xem chung"}
               </button>
+              {roomQuery && isHost && (
+                <button
+                  type="button"
+                  className="action-btn"
+                  style={{
+                    marginLeft: 8,
+                    background: "rgba(124, 58, 237, 0.2)",
+                    borderColor: "#7c3aed",
+                    color: "#c4b5fd",
+                    fontWeight: 600,
+                  }}
+                  onClick={() => {
+                    setMovieSearch("");
+                    setShowMoviePicker(true);
+                  }}
+                  title="Đổi bộ phim khác cho cả phòng cùng xem"
+                >
+                  <Film size={14} /> Đổi phim phòng
+                </button>
+              )}
             </div>
 
             <div className="actions-right">
@@ -750,30 +854,83 @@ export default function WatchPage({
         {/* CỘT 3 (PHẢI): SIDEBAR THÔNG TIN PHIM THẬT */}
         <aside className="watch-col-sidebar">
           {roomQuery && (
-            <div style={{ background: "rgba(124,58,237,0.1)", border: "1px solid #7c3aed", padding: 12, borderRadius: 8, marginBottom: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <strong style={{ color: "#c4b5fd" }}>Phòng xem chung</strong>
-                <span style={{ fontSize: 12, background: "#7c3aed", color: "#fff", padding: "2px 8px", borderRadius: 12 }}>
-                  <Users size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
-                  {viewerCount}
-                </span>
+            <div className="watchparty-box">
+              <div className="watchparty-header">
+                <div className="watchparty-title">
+                  <span className="watchparty-pulse" />
+                  <strong>Phòng xem chung</strong>
+                </div>
+                <div className="watchparty-badge">
+                  <Users size={12} />
+                  <span>{viewerCount} người</span>
+                </div>
               </div>
+
               {isHost ? (
-                <p style={{ fontSize: 13, margin: 0, color: "#a78bfa" }}>
-                  <b style={{ color: "#fff" }}>Bạn là Chủ phòng.</b> Hãy phát, tạm dừng hoặc tua để đồng bộ video cho mọi người.
-                </p>
+                <div className="watchparty-host-desc">
+                  <span>👑 <strong>Bạn là Chủ phòng.</strong> Bạn có quyền đổi phim, chuyển tập và điều khiển phát video cho cả phòng.</span>
+                </div>
               ) : (
-                <p style={{ fontSize: 13, margin: 0, color: "#a78bfa" }}>
-                  Đang đồng bộ video với chủ phòng. Bạn chỉ có quyền xem.
+                <p className="watchparty-guest-desc">
+                  Đang đồng bộ trực tiếp với Chủ phòng. Khi Chủ phòng đổi phim hoặc chuyển tập, bạn sẽ tự động chuyển theo.
                 </p>
               )}
+
+              {/* ACTION BUTTONS */}
+              <div className="watchparty-actions-grid">
+                {isHost && (
+                  <button
+                    type="button"
+                    className="watchparty-btn watchparty-btn-primary"
+                    onClick={() => {
+                      setMovieSearch("");
+                      setShowMoviePicker(true);
+                    }}
+                    title="Đổi bộ phim khác cho cả phòng cùng xem"
+                  >
+                    <Film size={14} /> Đổi phim cho phòng
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="watchparty-btn watchparty-btn-secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href).then(() => {
+                      showToast("✅ Đã sao chép link phòng vào khay nhớ tạm!");
+                    });
+                  }}
+                  title="Sao chép link mời bạn bè"
+                >
+                  <Share2 size={14} /> Copy link mời
+                </button>
+                {isHost ? (
+                  <button
+                    type="button"
+                    className="watchparty-btn watchparty-btn-danger"
+                    onClick={handleCloseRoom}
+                    title="Đóng phòng và kết thúc buổi xem chung"
+                  >
+                    <X size={14} /> Đóng phòng
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="watchparty-btn watchparty-btn-danger"
+                    onClick={handleLeaveRoom}
+                    title="Rời khỏi phòng xem chung"
+                  >
+                    <LogOut size={14} /> Rời phòng
+                  </button>
+                )}
+              </div>
+
               {viewers && viewers.length > 0 && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(124,58,237,0.3)" }}>
-                  <div style={{ fontSize: 12, color: "#a78bfa", marginBottom: 8 }}>Người đang xem:</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div className="watchparty-viewers-wrap">
+                  <div className="watchparty-viewers-label">Thành viên trong phòng ({viewers.length}):</div>
+                  <div className="watchparty-viewers-list">
                     {viewers.map((v, idx) => (
-                      <div key={idx} style={{ background: "rgba(255,255,255,0.1)", padding: "4px 12px 4px 6px", borderRadius: 20, fontSize: 13, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ transform: 'scale(0.8)', transformOrigin: 'center', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div key={idx} className="watchparty-viewer-chip">
+                        <div className="watchparty-viewer-avatar">
                           <UserAvatar 
                             name={v.name} 
                             avatarId={v.avatarId} 
@@ -783,8 +940,10 @@ export default function WatchPage({
                             userId={v.id && v.id !== "undefined" ? Number(v.id) : undefined}
                           />
                         </div>
-                        <span style={{ fontWeight: 500 }}>
-                          {v.name} {v.isHost ? <span style={{ color: '#a78bfa', fontSize: 11 }}> (Chủ)</span> : ""} {v.id === String(user?.id) ? <span style={{ opacity: 0.7, fontSize: 11 }}> (Bạn)</span> : ""}
+                        <span className="watchparty-viewer-name">
+                          {v.name}
+                          {v.isHost && <span className="watchparty-role-host">👑 Chủ</span>}
+                          {v.id === String(user?.id) && <span className="watchparty-role-you"> (Bạn)</span>}
                         </span>
                       </div>
                     ))}
@@ -874,6 +1033,105 @@ export default function WatchPage({
         </aside>
       </div>
       <MovieComments movieId={movie.id} currentEpisodeIndex={episode} user={user} go={go} />
+
+      {/* MODAL ĐỔI PHIM CHO PHÒNG XEM CHUNG (DÀNH CHO CHỦ PHÒNG) */}
+      {showMoviePicker && (
+        <div className="watchparty-modal-backdrop" onClick={() => setShowMoviePicker(false)}>
+          <div className="watchparty-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="watchparty-modal-header">
+              <div>
+                <h3 className="watchparty-modal-title">
+                  <Film size={20} style={{ color: "var(--accent)" }} />
+                  Đổi phim cho phòng xem chung
+                </h3>
+                <p className="watchparty-modal-sub">
+                  Chọn phim mới để chuyển tất cả <b>{viewerCount} thành viên</b> trong phòng cùng xem ngay lập tức
+                </p>
+              </div>
+              <button
+                type="button"
+                className="watchparty-modal-close"
+                onClick={() => setShowMoviePicker(false)}
+                aria-label="Đóng"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="watchparty-modal-search">
+              <Search size={16} />
+              <input
+                type="text"
+                value={movieSearch}
+                onChange={(e) => setMovieSearch(e.target.value)}
+                placeholder="Tìm phim theo tên, thể loại..."
+                autoFocus
+              />
+              {movieSearch && (
+                <button type="button" onClick={() => setMovieSearch("")} style={{ opacity: 0.6 }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="watchparty-modal-list">
+              {filteredMovies.length > 0 ? (
+                filteredMovies.map((m: Movie) => {
+                  const isCurrent = m.id === movie.id;
+                  const isSeries = m.totalEpisodes > 1 || (m.episodes && m.episodes.length > 1);
+                  return (
+                    <div
+                      key={m.id}
+                      className={`watchparty-movie-item ${isCurrent ? "current" : ""}`}
+                    >
+                      <div className="watchparty-movie-art">
+                        {m.poster ? (
+                          <img src={m.poster} alt={m.title} loading="lazy" />
+                        ) : (
+                          <Film size={22} style={{ opacity: 0.3 }} />
+                        )}
+                      </div>
+                      <div className="watchparty-movie-info">
+                        <h4>{m.title}</h4>
+                        <div className="watchparty-movie-meta">
+                          <span>{isSeries ? `Tập 1-${m.episode}/${m.totalEpisodes}` : "Bản Full"}</span>
+                          <span>•</span>
+                          <span style={{ color: m.status === "Đang chiếu" ? "#34d399" : "#a1a1aa" }}>{m.status}</span>
+                          {m.genres && m.genres.length > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{m.genres.slice(0, 2).join(", ")}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="watchparty-movie-action">
+                        {isCurrent ? (
+                          <span className="watchparty-playing-badge">Đang xem</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="watchparty-select-btn"
+                            onClick={() => handleHostChangeMovie(m)}
+                          >
+                            <span>Chọn xem</span>
+                            <ArrowRight size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="watchparty-empty-search">
+                  <Film size={36} style={{ opacity: 0.3, marginBottom: 8 }} />
+                  <p>Không tìm thấy phim phù hợp với từ khóa "{movieSearch}"</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toast.show && (

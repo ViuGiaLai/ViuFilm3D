@@ -10,10 +10,23 @@ let client: SupabaseClient | null = null;
 const rooms = new Map<string, RealtimeChannel>();
 
 export type WatchPartyEvent = {
-  type: "play" | "pause" | "seek" | "change_speed" | "change_episode" | "sync" | "request_sync" | "heartbeat";
+  type:
+    | "play"
+    | "pause"
+    | "seek"
+    | "change_speed"
+    | "change_episode"
+    | "sync"
+    | "request_sync"
+    | "heartbeat"
+    | "change_movie"
+    | "room_closed";
   time?: number;
   speed?: number;
   episode?: number;
+  movieId?: number;
+  movieSlug?: string;
+  movieTitle?: string;
   paused?: boolean;
   by: string; // user id or something
 };
