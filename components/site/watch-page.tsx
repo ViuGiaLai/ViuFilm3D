@@ -794,7 +794,7 @@ export default function WatchPage({
           </div>
         </aside>
       </div>
-      <MovieComments movieId={movie.id} user={user} go={go} />
+      <MovieComments movieId={movie.id} currentEpisodeIndex={episode} user={user} go={go} />
 
       {/* Toast Notification */}
       {toast.show && (

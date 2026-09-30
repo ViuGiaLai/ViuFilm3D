@@ -21,9 +21,9 @@ import { CultivationBadge } from "@/components/ui/cultivation-badge";
 import { getCultivation } from "@/lib/cultivation";
 import type { Navigate } from "@/components/site/types";
 
-type Props = { movieId: number; user: Account | null; go: Navigate };
+type Props = { movieId: number; currentEpisodeIndex?: number; user: Account | null; go: Navigate };
 
-export default function MovieComments({ movieId, user, go }: Props) {
+export default function MovieComments({ movieId, currentEpisodeIndex, user, go }: Props) {
   const [comments, setComments] = useState<MovieComment[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
@@ -229,6 +229,7 @@ export default function MovieComments({ movieId, user, go }: Props) {
         user.avatarId,
         user.avatarVersion,
         replyTo,
+        currentEpisodeIndex,
       );
       if (currentMovieId.current !== movieId) return;
       setComments((current) =>
@@ -420,6 +421,11 @@ export default function MovieComments({ movieId, user, go }: Props) {
                     {comment.authorName}
                   </button>
                   <CultivationBadge xp={comment.authorCultivationXp} />
+                  {comment.episodeIndex != null && (
+                    <span className="movie-comment-episode">
+                      Tập {comment.episodeIndex}
+                    </span>
+                  )}
                   <time dateTime={comment.createdAt}>
                     {new Date(comment.createdAt).toLocaleDateString("vi-VN")}
                   </time>

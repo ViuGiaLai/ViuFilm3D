@@ -85,6 +85,7 @@ export const viewerGateway = {
     avatarId?: string,
     avatarVersion?: string | null,
     parentId?: number | null,
+    episodeIndex?: number | null,
   ) {
     if (apiMode === "mock") {
       const comment: MovieComment = {
@@ -100,6 +101,7 @@ export const viewerGateway = {
         body,
         createdAt: new Date().toISOString(),
         mine: true,
+        episodeIndex: episodeIndex,
       };
       writeStorage(mockCommentsKey(movieId), [
         comment,
@@ -109,7 +111,7 @@ export const viewerGateway = {
     }
     return requestApi<MovieComment>(`/movies/${movieId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body, parentId }),
+      body: JSON.stringify({ body, parentId, episodeIndex }),
     });
   },
 

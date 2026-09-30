@@ -31,7 +31,7 @@ export async function GET(request: Request, context: Context) {
     const { data, error } = await db
       .from("movie_comments")
       .select(
-        "id,movie_id,user_id,parent_id,like_count,body,created_at,app_users!movie_comments_user_id_fkey(*)",
+        "id,movie_id,user_id,parent_id,like_count,body,created_at,episode_index,app_users!movie_comments_user_id_fkey(*)",
       )
       .eq("movie_id", movieId)
       .eq("status", "visible")
@@ -81,6 +81,7 @@ export async function GET(request: Request, context: Context) {
         avatarVersion: author?.avatar_updated_at,
         body: row.body,
         parentId: row.parent_id ? Number(row.parent_id) : null,
+        episodeIndex: row.episode_index != null ? Number(row.episode_index) : null,
         likeCount: Number(row.like_count ?? 0),
         liked: likedIds.has(Number(row.id)),
         createdAt: row.created_at,
@@ -106,9 +107,11 @@ export async function POST(request: Request, context: Context) {
     const body = (await request.json()) as {
       body?: unknown;
       parentId?: unknown;
+      episodeIndex?: unknown;
     };
     const content = typeof body.body === "string" ? body.body.trim() : "";
     const parentId = body.parentId == null ? null : Number(body.parentId);
+    const episodeIndex = body.episodeIndex == null ? null : Number(body.episodeIndex);
     if (content.length < 2 || content.length > 1000) {
       throw new ValidationError("Bình luận cần từ 2 đến 1000 ký tự.");
     }
@@ -152,6 +155,7 @@ export async function POST(request: Request, context: Context) {
         user_id: author.id,
         parent_id: parentId,
         body: content,
+        episode_index: episodeIndex,
       })
       .select("id,created_at")
       .single();
@@ -180,6 +184,7 @@ export async function POST(request: Request, context: Context) {
         avatarVersion: author.account.avatarVersion,
         body: content,
         parentId,
+        episodeIndex,
         likeCount: 0,
         liked: false,
         createdAt: data.created_at,

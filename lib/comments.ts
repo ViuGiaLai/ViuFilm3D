@@ -12,6 +12,7 @@ export type MovieComment = {
   createdAt: string;
   mine: boolean;
   parentId?: number | null;
+  episodeIndex?: number | null;
   likeCount?: number;
   liked?: boolean;
 };
