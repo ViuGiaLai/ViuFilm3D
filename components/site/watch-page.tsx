@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -103,6 +104,27 @@ export default function WatchPage({
   const [showMoviePicker, setShowMoviePicker] = useState(false);
   const [movieSearch, setMovieSearch] = useState("");
   const [pickerTab, setPickerTab] = useState<"trending" | "related" | "latest">("trending");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (showMoviePicker) {
+      document.body.classList.add("has-watchparty-modal");
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setShowMoviePicker(false);
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.classList.remove("has-watchparty-modal");
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    } else {
+      document.body.classList.remove("has-watchparty-modal");
+    }
+  }, [showMoviePicker]);
 
   const showToast = (message: string) => {
     setToast({ message, show: true });
@@ -1068,7 +1090,7 @@ export default function WatchPage({
       <MovieComments movieId={movie.id} currentEpisodeIndex={episode} user={user} go={go} />
 
       {/* MODAL ĐỔI PHIM CHO PHÒNG XEM CHUNG (DÀNH CHO CHỦ PHÒNG) */}
-      {showMoviePicker && (
+      {showMoviePicker && mounted && createPortal(
         <div className="watchparty-modal-backdrop" onClick={() => setShowMoviePicker(false)}>
           <div className="watchparty-modal" onClick={(e) => e.stopPropagation()}>
             <div className="watchparty-modal-header">
@@ -1191,7 +1213,8 @@ export default function WatchPage({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Toast Notification */}

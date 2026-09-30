@@ -9041,12 +9041,20 @@ button.social-person:hover {
 }
 
 /* MODAL ĐỔI PHIM */
+body.has-watchparty-modal {
+  overflow: hidden !important;
+}
+body.has-watchparty-modal .mobile-bottom-nav,
+body.has-watchparty-modal .ha-header {
+  display: none !important;
+}
+
 .watchparty-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 999;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  z-index: 999999;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9298,4 +9306,77 @@ button.social-person:hover {
   color: #f5a524;
   margin-left: auto;
   font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .watchparty-modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    background: rgba(11, 15, 25, 0.96);
+  }
+  .watchparty-modal {
+    max-width: 100vw;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+  }
+  .watchparty-modal-header {
+    padding: 12px 16px 10px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    background: #0f172a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+  .watchparty-modal-title {
+    font-size: 16px;
+  }
+  .watchparty-modal-sub {
+    font-size: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .watchparty-modal-close {
+    width: 36px;
+    height: 36px;
+  }
+  .watchparty-modal-search {
+    padding: 10px 16px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .watchparty-modal-search input {
+    font-size: 16px; /* Stop iOS Safari auto-zoom */
+  }
+  .watchparty-modal-tabs {
+    padding: 8px 16px;
+    flex-shrink: 0;
+  }
+  .watchparty-modal-list {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 14px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
+  }
+  .watchparty-movie-item {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+  .watchparty-movie-info h4 {
+    font-size: 13px;
+  }
+  .watchparty-select-btn {
+    padding: 6px 12px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
 }
