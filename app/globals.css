@@ -2223,17 +2223,18 @@ video {
 
 .player-settings-menu {
   position: absolute;
-  bottom: 38px;
-  right: -10px;
-  background: #171b24;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  bottom: calc(100% + 12px);
+  right: -8px;
+  background: rgba(23, 27, 36, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
   padding: 12px;
-  min-width: 170px;
-  max-height: calc(100% - 48px);
+  min-width: 175px;
+  max-height: 280px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(12px);
   z-index: 60;
   animation: resumePop 0.15s ease-out;
 }
@@ -2500,7 +2501,9 @@ video {
   }
   .player-settings-menu {
     right: 0;
+    bottom: calc(100% + 8px);
     min-width: 155px;
+    max-height: 240px;
     padding: 10px;
   }
 }
@@ -2553,7 +2556,8 @@ video {
   .player-settings-menu {
     right: 0;
     left: auto;
-    bottom: 36px;
+    bottom: calc(100% + 6px);
+    max-height: 220px;
   }
 }
 
