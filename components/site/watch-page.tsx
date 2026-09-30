@@ -26,6 +26,7 @@ import { apiMode } from "@/lib/config";
 import CustomPlayer, { type PlayerRef } from "@/components/site/custom-player";
 import { joinWatchParty, type WatchPartyEvent } from "@/lib/watch-party-client";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { MovieArt } from "@/components/ui/movie-art";
 
 type WatchPageProps = {
   movie: Movie;
@@ -1085,11 +1086,7 @@ export default function WatchPage({
                       className={`watchparty-movie-item ${isCurrent ? "current" : ""}`}
                     >
                       <div className="watchparty-movie-art">
-                        {m.poster ? (
-                          <img src={m.poster} alt={m.title} loading="lazy" />
-                        ) : (
-                          <Film size={22} style={{ opacity: 0.3 }} />
-                        )}
+                        <MovieArt movie={m} />
                       </div>
                       <div className="watchparty-movie-info">
                         <h4>{m.title}</h4>
