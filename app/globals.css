@@ -8637,16 +8637,129 @@ html[data-mode="light"] .ha-search {
 }
 .avatar-frame-art {
   position: absolute;
-  inset: -9%;
-  width: 118%;
-  height: 118%;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
   pointer-events: none;
   overflow: visible;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.45));
 }
 .avatar-frame-orbit {
   transform-box: view-box;
   transform-origin: 50% 50%;
   transform: rotate(10deg);
+}
+
+/* Animation classes for Avatar Frame Art */
+.avatar-anim-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: frame-spin 12s linear infinite;
+}
+.avatar-anim-spin-slow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: frame-spin 22s linear infinite;
+}
+.avatar-anim-spin-reverse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: frame-spin-rev 14s linear infinite;
+}
+.avatar-anim-flash {
+  animation: frame-flash 1.6s ease-in-out infinite;
+}
+.avatar-anim-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: frame-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes frame-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes frame-spin-rev {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes frame-flash {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; filter: drop-shadow(0 0 5px currentColor); }
+}
+@keyframes frame-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 5px currentColor); }
+}
+
+/* Higher Realm Tier Aura Glows - Đẳng cấp cảnh giới cao vượt bậc */
+.avatar-frame-art--realm-11,
+.avatar-frame-art--realm-12,
+.avatar-frame-art--realm-13 {
+  filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.7)) drop-shadow(0 0 10px rgba(245, 158, 11, 0.35));
+}
+.avatar-frame-art--realm-9,
+.avatar-frame-art--realm-10 {
+  filter: drop-shadow(0 0 5px rgba(96, 165, 250, 0.6)) drop-shadow(0 0 9px rgba(168, 85, 247, 0.4));
+}
+.avatar-frame-art--realm-6,
+.avatar-frame-art--realm-7,
+.avatar-frame-art--realm-8 {
+  filter: drop-shadow(0 0 4px rgba(244, 63, 94, 0.5)) drop-shadow(0 0 8px rgba(234, 179, 8, 0.3));
+}
+.avatar-frame-art--realm-3,
+.avatar-frame-art--realm-4,
+.avatar-frame-art--realm-5 {
+  filter: drop-shadow(0 0 3px rgba(192, 132, 252, 0.5));
+}
+.avatar-frame-art--realm-1,
+.avatar-frame-art--realm-2 {
+  filter: drop-shadow(0 0 2.5px rgba(52, 211, 153, 0.45));
+}
+
+/* Elemental, Beast & Special Aura Glows */
+.avatar-frame-art--fire {
+  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.7)) drop-shadow(0 0 8px rgba(220, 38, 38, 0.35));
+}
+.avatar-frame-art--ice {
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.7));
+}
+.avatar-frame-art--thunder {
+  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.7)) drop-shadow(0 0 8px rgba(96, 165, 250, 0.4));
+}
+.avatar-frame-art--dragon {
+  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.65));
+}
+.avatar-frame-art--phoenix {
+  filter: drop-shadow(0 0 5px rgba(249, 115, 22, 0.7)) drop-shadow(0 0 9px rgba(234, 88, 12, 0.4));
+}
+.avatar-frame-art--swords {
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+}
+.avatar-frame-art--lotus {
+  filter: drop-shadow(0 0 4px rgba(244, 114, 182, 0.65));
+}
+.avatar-frame-art--formation,
+.avatar-frame-art--stars {
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.65)) drop-shadow(0 0 8px rgba(99, 102, 241, 0.35));
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .avatar-anim-spin,
+  .avatar-anim-spin-slow,
+  .avatar-anim-spin-reverse,
+  .avatar-anim-flash,
+  .avatar-anim-pulse {
+    animation: none !important;
+  }
+}
+.account-page--quiet .avatar-anim-spin,
+.account-page--quiet .avatar-anim-spin-slow,
+.account-page--quiet .avatar-anim-spin-reverse,
+.account-page--quiet .avatar-anim-flash,
+.account-page--quiet .avatar-anim-pulse {
+  animation: none !important;
 }
 .frame-picker {
   margin: 20px 0;

@@ -68,6 +68,24 @@ export default function DashboardApp() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  useEffect(() => {
+    const handleUserUpdate = (e: Event) => {
+      const custom = e as CustomEvent<Account>;
+      if (custom.detail) {
+        setUser(custom.detail);
+      } else {
+        const stored = read<Account | null>(storage.user, null);
+        if (stored) setUser(stored);
+      }
+    };
+    window.addEventListener("storage", handleUserUpdate);
+    window.addEventListener("viufilm-user-updated", handleUserUpdate);
+    return () => {
+      window.removeEventListener("storage", handleUserUpdate);
+      window.removeEventListener("viufilm-user-updated", handleUserUpdate);
+    };
+  }, []);
+
   const [movies, setMovies] = useState<Movie[]>(() =>
       [...movieSeed].sort((a, b) => b.id - a.id),
     ),

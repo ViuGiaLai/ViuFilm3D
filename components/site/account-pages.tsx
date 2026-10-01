@@ -626,7 +626,13 @@ export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
             };
       if (!mounted.current) return;
       setUser(next);
-      if (apiMode === "mock") write(storage.user, next);
+      write(storage.user, next);
+      try {
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("viufilm-user-updated", { detail: next }));
+      } catch {
+        // ignore
+      }
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 2000);
