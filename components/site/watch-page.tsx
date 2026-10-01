@@ -45,6 +45,7 @@ type WatchPageProps = {
   ) => void;
   historyItem?: HistoryItem;
   favorite?: boolean;
+  favorites?: number[];
   toggleFavorite?: (id: number) => void;
   user: Account | null;
 };
@@ -53,18 +54,26 @@ export default function WatchPage({
   movie,
   movies = [],
   go,
-  onWatch,
+  onWatch: _onWatch,
   onView,
   onProgress,
   historyItem,
   favorite = false,
+  favorites,
   toggleFavorite,
   user,
 }: WatchPageProps) {
   const searchParams = useSearchParams();
-  const tapQuery = searchParams.get("tap");
-  const trailerQuery = searchParams.get("trailer");
-  const roomQuery = searchParams.get("room");
+  const getParam = (name: string) => {
+    if (typeof window !== "undefined") {
+      const val = new URLSearchParams(window.location.search).get(name);
+      if (val !== null) return val;
+    }
+    return searchParams.get(name);
+  };
+  const tapQuery = getParam("tap");
+  const trailerQuery = getParam("trailer");
+  const roomQuery = getParam("room");
   const parsedTap = tapQuery ? Number(tapQuery) : NaN;
   const isSingle = movie.totalEpisodes <= 1;
 
@@ -75,7 +84,60 @@ export default function WatchPage({
         ? 1
         : movie.episode;
 
+  const isUpcoming = movie.status === "Sắp chiếu" && Boolean(movie.trailer);
+
   const [episode, setEpisode] = useState(initialEp);
+  const [activeRoom, setActiveRoom] = useState<string | null>(() => roomQuery || null);
+  const [isHost, setIsHost] = useState(() => {
+    if (typeof window !== "undefined" && roomQuery) {
+      return localStorage.getItem(`watchparty_host_${roomQuery}`) === "true";
+    }
+    return false;
+  });
+
+  const [showTrailer, setShowTrailer] = useState(
+    Boolean(trailerQuery) || isUpcoming,
+  );
+
+  const episodeRef = useRef(episode);
+  episodeRef.current = episode;
+  const showTrailerRef = useRef(showTrailer);
+  showTrailerRef.current = showTrailer;
+  const isHostRef = useRef(isHost);
+  isHostRef.current = isHost;
+  const activeRoomRef = useRef(activeRoom);
+  activeRoomRef.current = activeRoom;
+  const movieRef = useRef(movie);
+  movieRef.current = movie;
+
+  const isFav = favorites ? favorites.includes(movie.id) : favorite;
+
+  // When movie changes, sync episode, trailer state, and clear telemetry
+  const prevMovieIdRef = useRef(movie.id);
+  useEffect(() => {
+    if (prevMovieIdRef.current !== movie.id) {
+      prevMovieIdRef.current = movie.id;
+      const isUp = movie.status === "Sắp chiếu" && Boolean(movie.trailer);
+      const targetEp = Number.isInteger(parsedTap) && parsedTap > 0 ? parsedTap : 1;
+      setEpisode(targetEp);
+      setShowTrailer(Boolean(trailerQuery) || isUp);
+      reportedViewsRef.current.clear();
+      viewRetryAtRef.current.clear();
+      watchProgressRef.current = { playbackKey: "", lastVideoTime: 0, watchedSeconds: 0 };
+      lastProgressReportRef.current = { key: "", seconds: 0 };
+    }
+  }, [movie.id, movie.status, movie.trailer, parsedTap, trailerQuery]);
+
+  // Sync if room query param changes externally
+  useEffect(() => {
+    if (roomQuery && roomQuery !== activeRoom) {
+      setActiveRoom(roomQuery);
+      if (typeof window !== "undefined") {
+        setIsHost(localStorage.getItem(`watchparty_host_${roomQuery}`) === "true");
+      }
+    }
+  }, [roomQuery]);
+
   const [isExpanded, setIsExpanded] = useState(false);
   const playerColumnRef = useRef<HTMLElement>(null);
   const playerRef = useRef<PlayerRef>(null);
@@ -93,11 +155,6 @@ export default function WatchPage({
     watchedSeconds: 0,
   });
   const [expandedDesc, setExpandedDesc] = useState(false);
-  const [showTrailer, setShowTrailer] = useState(
-    Boolean(trailerQuery) ||
-      (movie.status === "Sắp chiếu" && Boolean(movie.trailer)),
-  );
-  const [isHost, setIsHost] = useState(false);
   const [viewerCount, setViewerCount] = useState(1);
   const [viewers, setViewers] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: "", show: false });
@@ -132,58 +189,68 @@ export default function WatchPage({
   };
 
   const handleHostChangeMovie = (targetMovie: Movie) => {
-    if (!roomQuery || !isHost) return;
+    if (!activeRoom || !isHost) return;
     if (targetMovie.id === movie.id) {
       setShowMoviePicker(false);
       return;
     }
     const targetSlug = targetMovie.slug || targetMovie.id;
+    const isUp = targetMovie.status === "Sắp chiếu" && Boolean(targetMovie.trailer);
     watchPartyRef.current?.broadcast({
       type: "change_movie",
       movieId: targetMovie.id,
       movieSlug: String(targetSlug),
       movieTitle: targetMovie.title,
       episode: 1,
+      isTrailer: isUp,
       by: String(user?.id),
     });
     showToast(`🎬 Đang chuyển cả phòng sang: ${targetMovie.title}...`);
     setShowMoviePicker(false);
-    setTimeout(() => {
-      go(`/xem/${targetSlug}?tap=1&room=${roomQuery}`);
-    }, 400);
+
+    const newPath = `/xem/${targetSlug}?${isUp ? "trailer=1" : "tap=1"}&room=${activeRoom}`;
+    go(newPath);
   };
 
   const handleCloseRoom = () => {
-    if (!roomQuery) return;
+    if (!activeRoom) return;
     if (window.confirm("Bạn có chắc chắn muốn đóng phòng xem chung cho tất cả thành viên?")) {
       watchPartyRef.current?.broadcast({
         type: "room_closed",
         by: String(user?.id),
       });
-      localStorage.removeItem(`watchparty_host_${roomQuery}`);
+      try {
+        localStorage.removeItem(`watchparty_host_${activeRoom}`);
+      } catch {}
       showToast("Đã đóng phòng xem chung.");
-      const identifier = movie.slug || movie.id;
-      setTimeout(() => {
-        go(`/xem/${identifier}`);
-      }, 300);
+      setActiveRoom(null);
+      setIsHost(false);
+      const targetSlug = movie.slug || movie.id;
+      const isUp = movie.status === "Sắp chiếu" && Boolean(movie.trailer);
+      const cleanUrl = `/xem/${targetSlug}?${showTrailer || isUp ? "trailer=1" : isSingle ? "" : `tap=${episode}`}`;
+      go(cleanUrl);
     }
   };
 
   const handleLeaveRoom = () => {
-    if (!roomQuery) return;
+    if (!activeRoom) return;
     showToast("Bạn đã rời phòng xem chung.");
-    const identifier = movie.slug || movie.id;
-    setTimeout(() => {
-      go(`/xem/${identifier}`);
-    }, 300);
+    setActiveRoom(null);
+    setIsHost(false);
+    const targetSlug = movie.slug || movie.id;
+    const isUp = movie.status === "Sắp chiếu" && Boolean(movie.trailer);
+    const cleanUrl = `/xem/${targetSlug}?${showTrailer || isUp ? "trailer=1" : isSingle ? "" : `tap=${episode}`}`;
+    go(cleanUrl);
   };
 
   useEffect(() => {
     if (Number.isInteger(parsedTap) && parsedTap > 0) {
       setEpisode(parsedTap);
-      setShowTrailer(false);
+      if (movie.status !== "Sắp chiếu") {
+        setShowTrailer(false);
+      }
     }
-  }, [parsedTap]);
+  }, [parsedTap, movie.status]);
 
   useEffect(() => {
     if (
@@ -192,21 +259,24 @@ export default function WatchPage({
       window.location.search.includes("tap=")
     ) {
       const identifier = movie.slug || movie.id;
-      window.history.replaceState(null, "", `/xem/${identifier}${roomQuery ? `?room=${roomQuery}` : ""}`);
+      window.history.replaceState(null, "", `/xem/${identifier}${activeRoom ? `?room=${activeRoom}` : ""}`);
     }
-  }, [isSingle, movie.slug, movie.id, roomQuery]);
+  }, [isSingle, movie.slug, movie.id, activeRoom]);
 
   // Watch Party logic
   useEffect(() => {
-    const hostKey = localStorage.getItem(`watchparty_host_${roomQuery}`) === "true";
-    if (roomQuery) {
-      setIsHost(hostKey);
+    if (!activeRoom) {
+      setIsHost(false);
+      return;
     }
 
-    if (!roomQuery) return;
-    
+    const hostKey =
+      typeof window !== "undefined" &&
+      localStorage.getItem(`watchparty_host_${activeRoom}`) === "true";
+    setIsHost(hostKey);
+
     const wp = joinWatchParty(
-      `watchparty:${roomQuery}`,
+      `watchparty:${activeRoom}`,
       (event) => {
         const player = playerRef.current;
         if (!player) return;
@@ -228,24 +298,46 @@ export default function WatchPage({
         } else if (event.type === "change_speed" && event.speed !== undefined) {
           player.setSpeed?.(event.speed);
         } else if (event.type === "change_episode" && event.episode !== undefined) {
-          selectEpisode(event.episode, true);
+          if (event.isTrailer) {
+            setShowTrailer(true);
+            const identifier = movieRef.current.slug || movieRef.current.id;
+            go(`/xem/${identifier}?trailer=1${activeRoomRef.current ? `&room=${activeRoomRef.current}` : ""}`);
+          } else {
+            selectEpisode(event.episode, true);
+          }
         } else if (event.type === "request_sync") {
           // Khách mới vào phòng yêu cầu Chủ phòng gửi vị trí thời gian hiện tại
-          if (hostKey) {
+          if (isHostRef.current) {
             const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
             const paused = player.isPaused ? player.isPaused() : true;
             wp?.broadcast({
               type: "sync",
               time: cur,
               paused,
-              episode,
+              episode: episodeRef.current,
+              isTrailer: showTrailerRef.current,
+              movieId: movieRef.current.id,
+              movieSlug: String(movieRef.current.slug || movieRef.current.id),
+              movieTitle: movieRef.current.title,
               by: String(user?.id),
             });
           }
         } else if (event.type === "sync") {
           // Đồng bộ tức thì theo Chủ phòng
-          if (!hostKey) {
-            if (event.episode !== undefined && event.episode !== episode) {
+          if (!isHostRef.current) {
+            // Nếu khách đang ở khác phim với Chủ phòng, tự động chuyển sang phim của Chủ phòng!
+            if (event.movieId && event.movieId !== movieRef.current.id) {
+              const targetSlug = event.movieSlug || event.movieId;
+              const isUp = Boolean(event.isTrailer);
+              const targetUrl = `/xem/${targetSlug}?${isUp ? "trailer=1" : `tap=${event.episode || 1}`}&room=${activeRoomRef.current || ""}`;
+              go(targetUrl);
+              return;
+            }
+
+            if (event.isTrailer !== undefined && event.isTrailer !== showTrailerRef.current) {
+              setShowTrailer(event.isTrailer);
+            }
+            if (event.episode !== undefined && event.episode !== episodeRef.current) {
               selectEpisode(event.episode, true);
             }
             if (typeof event.time === "number" && Number.isFinite(event.time)) {
@@ -259,29 +351,34 @@ export default function WatchPage({
           }
         } else if (event.type === "heartbeat") {
           // Bù trôi thời gian định kỳ giữa Chủ phòng và Khách
-          if (!hostKey && typeof event.time === "number" && Number.isFinite(event.time)) {
+          if (!isHostRef.current && typeof event.time === "number" && Number.isFinite(event.time)) {
             const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
             if (Math.abs(cur - event.time) > 2.5) {
               player.seek(event.time);
             }
           }
         } else if (event.type === "change_movie") {
-          // Chủ phòng đã đổi sang bộ phim khác! Cả phòng cùng chuyển sang phim mới
-          if (!hostKey) {
-            showToast(`🎬 Chủ phòng đang chuyển sang: ${event.movieTitle || "phim mới"}...`);
+          // Chủ phòng đã đổi sang bộ phim khác! Cả phòng cùng chuyển sang phim mới (In-place, 0s reload!)
+          if (!isHostRef.current) {
+            showToast(`🎬 Chủ phòng đã chuyển sang: ${event.movieTitle || "phim mới"}`);
             const targetSlug = event.movieSlug || event.movieId;
+            const isUp = Boolean(event.isTrailer);
+            const targetUrl = `/xem/${targetSlug}?${isUp ? "trailer=1" : `tap=${event.episode || 1}`}&room=${activeRoomRef.current || ""}`;
+            go(targetUrl);
             setTimeout(() => {
-              go(`/xem/${targetSlug}?tap=${event.episode || 1}&room=${roomQuery}`);
-            }, 500);
+              wp?.broadcast({ type: "request_sync", by: String(user?.id) });
+            }, 600);
           }
         } else if (event.type === "room_closed") {
           // Chủ phòng đã đóng phòng xem chung
-          if (!hostKey) {
+          if (!isHostRef.current) {
             showToast("ℹ️ Chủ phòng đã đóng phòng xem chung.");
-            const identifier = movie.slug || movie.id;
-            setTimeout(() => {
-              go(`/xem/${identifier}`);
-            }, 600);
+            setActiveRoom(null);
+            setIsHost(false);
+            const targetSlug = movieRef.current.slug || movieRef.current.id;
+            const isUp = movieRef.current.status === "Sắp chiếu" && Boolean(movieRef.current.trailer);
+            const cleanUrl = `/xem/${targetSlug}?${showTrailerRef.current || isUp ? "trailer=1" : isSingle ? "" : `tap=${episodeRef.current}`}`;
+            go(cleanUrl);
           }
         }
       },
@@ -289,14 +386,18 @@ export default function WatchPage({
         setViewerCount(count);
         setViewers(viewersList);
         // Khi có thành viên mới vào phòng, Chủ phòng chủ động phát 1 gói sync
-        if (hostKey && playerRef.current) {
+        if (isHostRef.current && playerRef.current) {
           const cur = playerRef.current.getCurrentTime ? playerRef.current.getCurrentTime() : 0;
           const paused = playerRef.current.isPaused ? playerRef.current.isPaused() : true;
           wp?.broadcast({
             type: "sync",
             time: cur,
             paused,
-            episode,
+            episode: episodeRef.current,
+            isTrailer: showTrailerRef.current,
+            movieId: movieRef.current.id,
+            movieSlug: String(movieRef.current.slug || movieRef.current.id),
+            movieTitle: movieRef.current.title,
             by: String(user?.id),
           });
         }
@@ -307,7 +408,7 @@ export default function WatchPage({
         avatarId: user?.avatarId,
         avatarVersion: user?.avatarVersion,
         avatarFrameId: user?.avatarFrameId,
-        isHost: hostKey
+        isHost: hostKey,
       } as any
     );
 
@@ -325,7 +426,7 @@ export default function WatchPage({
       if (wp) wp.leave();
       watchPartyRef.current = null;
     };
-  }, [roomQuery, user, episode]);
+  }, [activeRoom, user?.id]);
 
   const trailerVideo = movie.trailer || "";
 
@@ -341,11 +442,12 @@ export default function WatchPage({
         return episode >= start && episode <= end;
       });
 
-  const currentEpisodeVideo = showTrailer
-    ? trailerVideo
-    : isSingle
-      ? movie.video
-      : currentEpisodeItem?.video || (episode === 1 ? movie.video : "");
+  const currentEpisodeVideo =
+    showTrailer || (movie.status === "Sắp chiếu" && trailerVideo)
+      ? trailerVideo
+      : isSingle
+        ? movie.video
+        : currentEpisodeItem?.video || (episode === 1 ? movie.video : "");
 
 
 
@@ -479,22 +581,25 @@ export default function WatchPage({
   };
 
   const selectEpisode = (ep: number, forceSync = false) => {
-    if (roomQuery && !isHost && !forceSync) {
+    if (activeRoom && !isHost && !forceSync) {
       showToast("Chỉ Chủ phòng mới có quyền chuyển tập!");
       return;
     }
     setEpisode(ep);
-    onWatch(movie, ep);
-    if (roomQuery && isHost && !forceSync) {
-      watchPartyRef.current?.broadcast({ type: "change_episode", episode: ep, by: String(user?.id) } as any);
+    setShowTrailer(false);
+    if (activeRoom && isHost && !forceSync) {
+      watchPartyRef.current?.broadcast({
+        type: "change_episode",
+        episode: ep,
+        isTrailer: false,
+        by: String(user?.id),
+      });
     }
     const identifier = movie.slug || movie.id;
-    if (typeof window !== "undefined") {
-      if (movie.totalEpisodes > 1) {
-        window.history.replaceState(null, "", `/xem/${identifier}?tap=${ep}${roomQuery ? `&room=${roomQuery}` : ""}`);
-      } else {
-        window.history.replaceState(null, "", `/xem/${identifier}${roomQuery ? `?room=${roomQuery}` : ""}`);
-      }
+    if (movie.totalEpisodes > 1) {
+      go(`/xem/${identifier}?tap=${ep}${activeRoom ? `&room=${activeRoom}` : ""}`);
+    } else {
+      go(`/xem/${identifier}${activeRoom ? `?room=${activeRoom}` : ""}`);
     }
   };
 
@@ -514,12 +619,22 @@ export default function WatchPage({
       ? "Bản Full (Thuyết minh)"
       : currEpObj?.title?.trim() || `Tập ${episode}`;
 
-  const selectTrailer = () => {
-    setShowTrailer(true);
-    const identifier = movie.slug || movie.id;
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", `/xem/${identifier}?trailer=1${roomQuery ? `&room=${roomQuery}` : ""}`);
+  const selectTrailer = (forceSync = false) => {
+    if (activeRoom && !isHost && !forceSync) {
+      showToast("Chỉ Chủ phòng mới có quyền chuyển Trailer!");
+      return;
     }
+    setShowTrailer(true);
+    if (activeRoom && isHost && !forceSync) {
+      watchPartyRef.current?.broadcast({
+        type: "change_episode",
+        episode: 1,
+        isTrailer: true,
+        by: String(user?.id),
+      });
+    }
+    const identifier = movie.slug || movie.id;
+    go(`/xem/${identifier}?trailer=1${activeRoom ? `&room=${activeRoom}` : ""}`);
   };
 
   const toggleTheaterMode = () => {
@@ -661,7 +776,7 @@ export default function WatchPage({
               <button
                 type="button"
                 className={`ep-pill-btn ep-pill-trailer ${showTrailer ? "active" : ""}`}
-                onClick={selectTrailer}
+                onClick={() => selectTrailer()}
                 title="Xem Trailer phim"
                 style={{ gridColumn: "1 / -1" }}
               >
@@ -680,7 +795,6 @@ export default function WatchPage({
                 type="button"
                 className={`ep-pill-btn ep-pill-full ${!showTrailer ? "active" : ""}`}
                 onClick={() => {
-                  setShowTrailer(false);
                   selectEpisode(1);
                 }}
               >
@@ -702,7 +816,6 @@ export default function WatchPage({
                     key={ep}
                     className={`ep-pill-btn ${!showTrailer && ep === episode ? "active" : ""} ${hasVideo ? "" : "ep-pill-pending"}`}
                     onClick={() => {
-                      setShowTrailer(false);
                       selectEpisode(ep);
                     }}
                     title={hasVideo ? epName : `${epName} (Chờ cập nhật video)`}
@@ -720,7 +833,7 @@ export default function WatchPage({
           <div className="player-viewport">
             {playbackVideo ? (
               <CustomPlayer
-                key={`player-${movie.id}-${episode}-${playbackVideo}`}
+                key={`player-${movie.id}-${episode}-${showTrailer ? "trailer" : "ep"}-${playbackVideo}`}
                 ref={playerRef}
                 src={playbackVideo}
                 poster={media.poster || undefined}
@@ -732,28 +845,28 @@ export default function WatchPage({
                 movieId={movie.id}
                 episodeNumber={episode}
                 initialResumeSeconds={
-                  Boolean(roomQuery) && !isHost
+                  Boolean(activeRoom) && !isHost
                     ? 0
                     : historyItem?.episode === episode && historyItem.progress < 95
                       ? (historyItem.positionSeconds ?? 0)
                       : 0
                 }
                 persistLocalProgress={
-                  Boolean(roomQuery) && !isHost
+                  Boolean(activeRoom) && !isHost
                     ? false
                     : apiMode === "mock" || user?.role !== "user"
                 }
-                readOnly={Boolean(roomQuery) && !isHost}
+                readOnly={Boolean(activeRoom) && !isHost}
                 onUnauthorizedAction={() => showToast("Chỉ Chủ phòng mới có quyền điều khiển video!")}
                 onPlay={(currentTime) => {
-                  if (!roomQuery || isHost) {
+                  if (!activeRoom || isHost) {
                     watchPartyRef.current?.broadcast({ type: "play", time: currentTime, by: String(user?.id) });
                   }
                 }}
                 onTimeUpdate={(currentTime, duration) => {
                   recordQualifiedView(currentTime);
                   reportPlaybackProgress(currentTime, duration);
-                  if (roomQuery && isHost) {
+                  if (activeRoom && isHost) {
                     const now = Date.now();
                     if (now - lastHeartbeatRef.current > 8000) {
                       lastHeartbeatRef.current = now;
@@ -766,18 +879,18 @@ export default function WatchPage({
                   }
                 }}
                 onPlaybackPause={(currentTime, duration) => {
-                  if (!roomQuery || isHost) {
+                  if (!activeRoom || isHost) {
                     watchPartyRef.current?.broadcast({ type: "pause", time: currentTime, by: String(user?.id) });
                   }
                   reportPlaybackProgress(currentTime, duration, true);
                 }}
                 onSeek={(time) => {
-                  if (!roomQuery || isHost) {
+                  if (!activeRoom || isHost) {
                     watchPartyRef.current?.broadcast({ type: "seek", time, by: String(user?.id) });
                   }
                 }}
                 onChangeSpeed={(speed) => {
-                  if (!roomQuery || isHost) {
+                  if (!activeRoom || isHost) {
                     watchPartyRef.current?.broadcast({ type: "change_speed", speed, by: String(user?.id) } as any);
                   }
                 }}
@@ -835,39 +948,39 @@ export default function WatchPage({
               </button>
               <button
                 type="button"
-                className={`action-btn ${roomQuery ? "watchparty-action-desktop-only" : ""}`}
+                className={`action-btn ${activeRoom ? "watchparty-action-desktop-only" : ""}`}
                 onClick={() => {
-                  if (roomQuery) {
+                  if (activeRoom) {
                     navigator.clipboard.writeText(window.location.href).then(() => {
                       showToast("✅ Đã sao chép link Phòng Xem Chung vào khay nhớ tạm! Bạn có thể gửi cho bạn bè ngay.");
                     });
                   } else {
                     const roomCode = Math.random().toString(36).substring(2, 10);
-                    const url = new URL(window.location.href);
-                    url.searchParams.set("room", roomCode);
-                    localStorage.setItem(`watchparty_host_${roomCode}`, "true");
-                    navigator.clipboard.writeText(url.toString()).then(() => {
+                    try {
+                      localStorage.setItem(`watchparty_host_${roomCode}`, "true");
+                    } catch {}
+                    setIsHost(true);
+                    setActiveRoom(roomCode);
+                    const targetSlug = movie.slug || movie.id;
+                    const isUp = movie.status === "Sắp chiếu" && Boolean(movie.trailer);
+                    const isTr = showTrailer || isUp;
+                    const newPath = `/xem/${targetSlug}?${isTr ? "trailer=1" : isSingle ? "" : `tap=${episode}`}${isTr || !isSingle ? `&room=${roomCode}` : `?room=${roomCode}`}`;
+                    go(newPath);
+                    const fullUrl = typeof window !== "undefined" ? `${window.location.origin}${newPath}` : newPath;
+                    navigator.clipboard?.writeText(fullUrl).then(() => {
                       showToast("✅ Đã tạo phòng & sao chép link! Bạn có thể gửi cho bạn bè ngay.");
-                      window.history.pushState(null, "", url.toString());
-                      setTimeout(() => {
-                        window.location.href = url.toString();
-                      }, 1000);
+                    }).catch(() => {
+                      showToast("✅ Đã tạo phòng xem chung!");
                     });
                   }
                 }}
               >
-                <Users size={14} /> {roomQuery ? "Copy Link mời" : "Xem chung"}
+                <Users size={14} /> {activeRoom ? "Copy Link mời" : "Xem chung"}
               </button>
-              {roomQuery && isHost && (
+              {activeRoom && isHost && (
                 <button
                   type="button"
-                  className="action-btn watchparty-action-desktop-only"
-                  style={{
-                    background: "rgba(124, 58, 237, 0.2)",
-                    borderColor: "#7c3aed",
-                    color: "#c4b5fd",
-                    fontWeight: 600,
-                  }}
+                  className="action-btn watchparty-change-btn watchparty-action-desktop-only"
                   onClick={() => {
                     setMovieSearch("");
                     setShowMoviePicker(true);
@@ -908,7 +1021,7 @@ export default function WatchPage({
 
         {/* CỘT 3 (PHẢI): SIDEBAR THÔNG TIN PHIM THẬT */}
         <aside className="watch-col-sidebar">
-          {roomQuery && (
+          {activeRoom && (
             <div className="watchparty-box">
               <div className="watchparty-header">
                 <div className="watchparty-title">
@@ -1018,10 +1131,10 @@ export default function WatchPage({
           {/* NÚT THÊM YÊU THÍCH HOẠT ĐỘNG THẬT */}
           <button
             type="button"
-            className={`sidebar-fav-btn ${favorite ? "favorited" : ""}`}
+            className={`sidebar-fav-btn ${isFav ? "favorited" : ""}`}
             onClick={() => toggleFavorite?.(movie.id)}
           >
-            {favorite ? (
+            {isFav ? (
               <>
                 <Check size={16} /> Đã có trong Phim Yêu Thích
               </>
@@ -1219,32 +1332,13 @@ export default function WatchPage({
 
       {/* Toast Notification */}
       {toast.show && (
-        <div style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          background: 'rgba(17, 24, 39, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid #7c3aed',
-          color: '#fff',
-          padding: '16px 24px',
-          borderRadius: 12,
-          boxShadow: '0 8px 32px rgba(124,58,237,0.2)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 12,
-          maxWidth: 320,
-          animation: 'toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-          lineHeight: 1.5,
-          fontSize: 14
-        }}>
-          <div style={{ background: 'rgba(124,58,237,0.2)', padding: 6, borderRadius: '50%', color: '#a78bfa' }}>
+        <div className="watchparty-toast">
+          <div className="watchparty-toast-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           </div>
           <div>
-            <div style={{ fontWeight: 600, color: '#c4b5fd', marginBottom: 4 }}>THÔNG BÁO</div>
-            <div style={{ color: '#e5e7eb' }}>{toast.message}</div>
+            <div className="watchparty-toast-title">THÔNG BÁO</div>
+            <div className="watchparty-toast-message">{toast.message}</div>
           </div>
         </div>
       )}

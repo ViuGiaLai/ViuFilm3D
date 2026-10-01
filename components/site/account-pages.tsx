@@ -12,6 +12,13 @@ import {
   ImagePlus,
   Palette,
   Sparkles,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Film,
+  Users,
+  ArrowRight,
 } from "lucide-react";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -43,33 +50,89 @@ type LoginPageProps = {
 export default function LoginPage({
   onLogin,
   close,
-  allowRegistration = false,
+  allowRegistration = true,
 }: LoginPageProps) {
   const isProduction = apiMode === "production";
   const [registering, setRegistering] = useState(false);
   const [needResendConfirm, setNeedResendConfirm] = useState(false);
   const [name, setName] = useState("");
   const [notice, setNotice] = useState("");
-  const [email, setEmail] = useState(isProduction ? "" : "user@gmail.com"),
-    [password, setPassword] = useState(isProduction ? "" : "123456"),
-    [error, setError] = useState(""),
-    [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState(isProduction ? "" : "user@gmail.com");
+  const [password, setPassword] = useState(isProduction ? "" : "123456");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem("viufilm_remember_email");
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [close]);
+
+  const handleSaveRemember = (userEmail: string) => {
+    try {
+      if (rememberMe) {
+        localStorage.setItem("viufilm_remember_email", userEmail);
+      } else {
+        localStorage.removeItem("viufilm_remember_email");
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
     setNotice("");
+
+    if (registering) {
+      if (name.trim().length < 2) {
+        setError("Tên hiển thị phải có ít nhất 2 ký tự.");
+        return;
+      }
+      const minLen = isProduction ? 8 : 6;
+      if (password.length < minLen) {
+        setError(`Mật khẩu phải có ít nhất ${minLen} ký tự.`);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Mật khẩu xác nhận không khớp.");
+        return;
+      }
+    }
+
     setSubmitting(true);
+    const targetEmail = email.trim().toLowerCase();
+
     if (apiMode === "production") {
       try {
         if (registering) {
           const result = await authGateway.register(
             name.trim(),
-            email.trim().toLowerCase(),
+            targetEmail,
             password,
           );
           if (result.userAlreadyExists) {
             setNotice(
-              "Tài khoản đã tồn tại. Nếu bạn chưa xác nhận email, hãy gửi lại email xác nhận.",
+              "Tài khoản đã tồn tại. Nếu bạn chưa xác nhận email, hãy bấm nút gửi lại bên dưới.",
             );
             setNeedResendConfirm(true);
             setRegistering(false);
@@ -77,39 +140,54 @@ export default function LoginPage({
           }
           if (result.confirmationRequired) {
             setNotice(
-              "Tài khoản đã được gửi yêu cầu đăng ký. Hãy kiểm tra email xác nhận, sau đó đăng nhập.",
+              "Tài khoản đã được gửi yêu cầu đăng ký. Hãy kiểm tra hộp thư xác nhận để hoàn tất kích hoạt.",
             );
             setRegistering(false);
           } else {
-            const account = await authGateway.login(
-              email.trim().toLowerCase(),
-              password,
-            );
-            if (account) onLogin(account);
+            const account = await authGateway.login(targetEmail, password);
+            if (account) {
+              handleSaveRemember(targetEmail);
+              onLogin(account);
+            }
           }
           return;
         }
-        const account = await authGateway.login(
-          email.trim().toLowerCase(),
-          password,
-        );
-        if (account) onLogin(account);
+
+        const account = await authGateway.login(targetEmail, password);
+        if (account) {
+          handleSaveRemember(targetEmail);
+          onLogin(account);
+        }
       } catch (submitError) {
         setError(
           submitError instanceof ApiRequestError && submitError.status === 401
             ? submitError.message
             : registering
-              ? "Không thể đăng ký lúc này. Vui lòng thử lại sau."
-              : "Không thể đăng nhập lúc này. Vui lòng thử lại sau.",
+              ? "Không thể đăng ký lúc này. Vui lòng kiểm tra lại thông tin."
+              : "Email hoặc mật khẩu không chính xác.",
         );
       } finally {
         setSubmitting(false);
       }
       return;
     }
+
+    // Mock mode
+    if (registering) {
+      const newAccount: Account = {
+        email: targetEmail,
+        name: name.trim() || targetEmail.split("@")[0],
+        role: "user",
+      };
+      handleSaveRemember(targetEmail);
+      onLogin(newAccount);
+      setSubmitting(false);
+      return;
+    }
+
     const viewers = await adminGateway.listViewers();
     const viewer = viewers.find(
-      (item) => item.email === email.trim().toLowerCase(),
+      (item) => item.email === targetEmail,
     );
     if (!viewer || password !== "123456") {
       setError("Email hoặc mật khẩu không chính xác.");
@@ -121,33 +199,76 @@ export default function LoginPage({
       setSubmitting(false);
       return;
     }
+    handleSaveRemember(targetEmail);
     onLogin({ email: viewer.email, name: viewer.name, role: viewer.role });
     setSubmitting(false);
   };
-  
+
   const resendConfirmation = async () => {
     setError("");
     setNotice("");
     setSubmitting(true);
     try {
       await authGateway.resendConfirmation(email.trim().toLowerCase());
-      setNotice("Email xác nhận đã được gửi lại. Vui lòng kiểm tra hộp thư.");
+      setNotice("Email xác nhận đã được gửi lại thành công. Vui lòng kiểm tra hộp thư của bạn.");
       setNeedResendConfirm(false);
     } catch (submitError) {
       setError(
         submitError instanceof ApiRequestError
           ? submitError.message
-          : "Không thể gửi lại email xác nhận lúc này."
+          : "Không thể gửi lại email xác nhận lúc này.",
       );
     } finally {
       setSubmitting(false);
     }
   };
+
   return (
     <main className="login-page">
       <section className="login-art">
-        <Logo />
-        <div>
+        <div className="login-art-header">
+          <Logo />
+          <span className="login-art-badge">
+            <Sparkles size={13} />
+            Đỉnh Cao Anime 3D
+          </span>
+        </div>
+
+        <div className="login-art-center">
+          <div className="login-art-features">
+            <div className="login-feature-card">
+              <div className="login-feature-icon">
+                <Film size={20} />
+              </div>
+              <div className="login-feature-content">
+                <h4>Độ phân giải 4K Ultra HD</h4>
+                <p>Khung hình mượt mà, âm thanh vòm sống động chuẩn rạp chiếu.</p>
+              </div>
+            </div>
+
+            <div className="login-feature-card">
+              <div className="login-feature-icon">
+                <Users size={20} />
+              </div>
+              <div className="login-feature-content">
+                <h4>Phòng Xem Chung Realtime</h4>
+                <p>Đồng bộ từng mili-giây, voice chat và bình luận tức thì cùng đạo hữu.</p>
+              </div>
+            </div>
+
+            <div className="login-feature-card">
+              <div className="login-feature-icon">
+                <Sparkles size={20} />
+              </div>
+              <div className="login-feature-content">
+                <h4>Tu Vi & Linh Thạch</h4>
+                <p>Xem phim tích lũy chân khí, đột phá cảnh giới và mở khóa ấn ký độc quyền.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-art-footer">
           <p className="mini-label">THẾ GIỚI HOẠT HÌNH 3D</p>
           <h1>
             Mỗi khung hình,
@@ -155,140 +276,260 @@ export default function LoginPage({
             <em>một thế giới mới.</em>
           </h1>
           <span>
-            Thư viện phim nguyên bản và nội dung minh họa được lưu trực tiếp
-            trong hệ thống.
+            Thư viện phim hoạt hình 3D nguyên bản, cập nhật nhanh nhất cho cộng đồng tu tiên.
           </span>
         </div>
       </section>
-      <form onSubmit={submit}>
-        <button type="button" className="login-close" onClick={close}>
-          <X />
-        </button>
-        <p className="mini-label">TÀI KHOẢN VIUFILM3D</p>
-        <h2>{registering ? "Tạo tài khoản người xem" : "Chào mừng trở lại"}</h2>
-        <span>
-          {isProduction
-            ? registering
-              ? "Đăng ký để bình luận, lưu phim yêu thích và tiếp tục xem trên thiết bị khác."
-              : "Đăng nhập để quản lý phim yêu thích, lịch sử xem và bình luận."
-            : "Đăng nhập để dùng dữ liệu tài khoản mẫu trên trình duyệt."}
-        </span>
-        {registering && (
-          <label>
-            Tên hiển thị
-            <input
-              required
-              minLength={2}
-              maxLength={100}
-              autoComplete="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-        )}
-        <label>
-          Email
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              setError("");
-              setNeedResendConfirm(false);
-            }}
-          />
-        </label>
-        <label>
-          Mật khẩu
-          <input
-            type="password"
-            required
-            minLength={registering ? 8 : undefined}
-            autoComplete={registering ? "new-password" : "current-password"}
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              setError("");
-            }}
-          />
-        </label>
-        {error && <p className="form-error">{error}</p>}
-        {notice && (
-          <p className="form-notice" role="status">
-            {notice}
-          </p>
-        )}
+
+      <div className="login-form-container">
         <button
-          type="submit"
-          className="primary-btn full"
-          disabled={submitting || needResendConfirm}
+          type="button"
+          className="login-close"
+          onClick={close}
+          title="Đóng (Phím Esc)"
+          aria-label="Đóng màn hình đăng nhập"
         >
-          {submitting
-            ? "Đang xử lý..."
-            : registering
-              ? "Tạo tài khoản"
-              : "Đăng nhập"}
+          <X size={18} />
         </button>
-        {needResendConfirm && (
-          <button
-            type="button"
-            className="glass-btn full"
-            style={{ marginTop: "0.5rem" }}
-            onClick={resendConfirmation}
-            disabled={submitting}
-          >
-            Gửi lại email xác nhận
-          </button>
-        )}
-        {isProduction && allowRegistration && (
-          <button
-            type="button"
-            className="auth-mode-toggle"
-            onClick={() => {
-              setRegistering((value) => !value);
-              setError("");
-              setNotice("");
-              setNeedResendConfirm(false);
-            }}
-          >
-            {registering
-              ? "Đã có tài khoản? Đăng nhập"
-              : "Chưa có tài khoản? Đăng ký"}
-          </button>
-        )}
-        {!isProduction && (
-          <div className="demo-accounts-box">
-            <span>Tài khoản mẫu thử nghiệm (Mock mode):</span>
-            <div className="demo-btns">
+
+        <form onSubmit={submit} className="login-page-form">
+          <div className="login-form-header">
+            <p className="mini-label">TÀI KHOẢN VIUFILM3D</p>
+            <h2>{registering ? "Tạo tài khoản mới" : "Chào mừng trở lại"}</h2>
+            <p className="login-form-desc">
+              {registering
+                ? "Đăng ký để bình luận, lưu phim yêu thích, tích lũy tu vi và xem trên mọi thiết bị."
+                : "Đăng nhập để quản lý phim yêu thích, tiếp tục xem và vào phòng xem chung."}
+            </p>
+          </div>
+
+          {allowRegistration && (
+            <div className="auth-segmented-tabs" role="tablist">
               <button
                 type="button"
-                className="demo-btn"
+                role="tab"
+                aria-selected={!registering}
+                className={`auth-tab ${!registering ? "active" : ""}`}
                 onClick={() => {
-                  setEmail("user@gmail.com");
-                  setPassword("123456");
+                  setRegistering(false);
                   setError("");
+                  setNotice("");
+                  setNeedResendConfirm(false);
                 }}
               >
-                👤 Người xem (user@gmail.com)
+                Đăng nhập
               </button>
               <button
                 type="button"
-                className="demo-btn admin"
+                role="tab"
+                aria-selected={registering}
+                className={`auth-tab ${registering ? "active" : ""}`}
                 onClick={() => {
-                  setEmail("admin@gmail.com");
-                  setPassword("123456");
+                  setRegistering(true);
                   setError("");
+                  setNotice("");
+                  setNeedResendConfirm(false);
                 }}
               >
-                🛡️ Quản trị viên (admin@gmail.com)
+                Đăng ký
               </button>
             </div>
-            <small>Mật khẩu: 123456</small>
+          )}
+
+          <div className="auth-fields-stack">
+            {registering && (
+              <label className="auth-input-label">
+                <span className="auth-label-text">Tên hiển thị</span>
+                <div className="auth-input-wrapper">
+                  <UserRound className="auth-input-icon" size={17} />
+                  <input
+                    required
+                    minLength={2}
+                    maxLength={100}
+                    autoComplete="name"
+                    placeholder="Ví dụ: Tiêu Viêm, Hàn Lập..."
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </div>
+              </label>
+            )}
+
+            <label className="auth-input-label">
+              <span className="auth-label-text">Email</span>
+              <div className="auth-input-wrapper">
+                <Mail className="auth-input-icon" size={17} />
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setError("");
+                    setNeedResendConfirm(false);
+                  }}
+                />
+              </div>
+            </label>
+
+            <label className="auth-input-label">
+              <span className="auth-label-text">Mật khẩu</span>
+              <div className="auth-input-wrapper">
+                <Lock className="auth-input-icon" size={17} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={registering ? (isProduction ? 8 : 6) : undefined}
+                  autoComplete={registering ? "new-password" : "current-password"}
+                  placeholder={registering ? (isProduction ? "Tối thiểu 8 ký tự" : "Tối thiểu 6 ký tự") : "••••••••"}
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setError("");
+                  }}
+                />
+                <button
+                  type="button"
+                  className="auth-pw-toggle"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </label>
+
+            {registering && (
+              <label className="auth-input-label">
+                <span className="auth-label-text">Xác nhận mật khẩu</span>
+                <div className="auth-input-wrapper">
+                  <ShieldCheck className="auth-input-icon" size={17} />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    minLength={isProduction ? 8 : 6}
+                    autoComplete="new-password"
+                    placeholder="Nhập lại mật khẩu vừa đặt"
+                    value={confirmPassword}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                      setError("");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="auth-pw-toggle"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </label>
+            )}
+
+            {!registering && (
+              <div className="auth-extra-row">
+                <label className="auth-remember-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span>Ghi nhớ tài khoản</span>
+                </label>
+              </div>
+            )}
           </div>
-        )}
-      </form>
+
+          {error && (
+            <div className="form-error auth-alert" role="alert">
+              <span>{error}</span>
+            </div>
+          )}
+
+          {notice && (
+            <div className="form-notice auth-alert" role="status">
+              <span>{notice}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="primary-btn auth-submit-btn"
+            disabled={submitting || needResendConfirm}
+          >
+            {submitting ? (
+              <span className="auth-btn-loading">
+                <span className="auth-spinner" />
+                Đang xử lý...
+              </span>
+            ) : registering ? (
+              <span className="auth-btn-content">
+                Tạo tài khoản mới
+                <ArrowRight size={17} />
+              </span>
+            ) : (
+              <span className="auth-btn-content">
+                Đăng nhập
+                <ArrowRight size={17} />
+              </span>
+            )}
+          </button>
+
+          {needResendConfirm && (
+            <button
+              type="button"
+              className="glass-btn full"
+              style={{ marginTop: "0.5rem" }}
+              onClick={resendConfirmation}
+              disabled={submitting}
+            >
+              Gửi lại email xác nhận
+            </button>
+          )}
+
+          {!isProduction && (
+            <div className="demo-accounts-box">
+              <div className="demo-accounts-header">
+                <Sparkles size={13} />
+                <span>Tài khoản dùng thử (Mock mode):</span>
+              </div>
+              <div className="demo-btns">
+                <button
+                  type="button"
+                  className="demo-btn"
+                  onClick={() => {
+                    setEmail("user@gmail.com");
+                    setPassword("123456");
+                    setError("");
+                  }}
+                >
+                  <span className="demo-badge user">👤 Người xem</span>
+                  <span className="demo-email">user@gmail.com</span>
+                </button>
+                <button
+                  type="button"
+                  className="demo-btn admin"
+                  onClick={() => {
+                    setEmail("admin@gmail.com");
+                    setPassword("123456");
+                    setError("");
+                  }}
+                >
+                  <span className="demo-badge admin">🛡️ Quản trị viên</span>
+                  <span className="demo-email">admin@gmail.com</span>
+                </button>
+              </div>
+              <small className="demo-tip">Mật khẩu mặc định: <strong>123456</strong></small>
+            </div>
+          )}
+        </form>
+      </div>
     </main>
   );
 }

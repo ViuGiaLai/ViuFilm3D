@@ -24,6 +24,7 @@ export type WatchPartyEvent = {
   time?: number;
   speed?: number;
   episode?: number;
+  isTrailer?: boolean;
   movieId?: number;
   movieSlug?: string;
   movieTitle?: string;

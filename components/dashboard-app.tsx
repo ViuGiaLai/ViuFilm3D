@@ -54,6 +54,20 @@ const getMovieFromPath = (path: string, list: Movie[]) => {
 export default function DashboardApp() {
   const router = useRouter(),
     pathname = usePathname();
+  const [routePath, setRoutePath] = useState(pathname);
+
+  useEffect(() => {
+    setRoutePath(pathname);
+  }, [pathname]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setRoutePath(window.location.pathname + window.location.search);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const [movies, setMovies] = useState<Movie[]>(() =>
       [...movieSeed].sort((a, b) => b.id - a.id),
     ),
@@ -171,6 +185,10 @@ export default function DashboardApp() {
   };
   const go = (path: string) => {
     setMobile(false);
+    setRoutePath(path);
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", path);
+    }
     router.push(path);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -321,10 +339,14 @@ export default function DashboardApp() {
     setSocialPeerId(peerId);
     setSocialOpen(true);
   };
-  const profileId = pathname.startsWith("/nguoi-dung/")
-    ? pathname.split("/").filter(Boolean)[1]
+  const currentPath = routePath || pathname;
+  const profileId = currentPath.startsWith("/nguoi-dung/")
+    ? currentPath.split("/").filter(Boolean)[1]
     : null;
-  const selected = getMovieFromPath(pathname, movies);
+  const selected = getMovieFromPath(currentPath, movies);
+  const roomMatch = currentPath.match(/[?&]room=([^&#]+)/);
+  const roomFromPath = roomMatch ? roomMatch[1] : null;
+
   useEffect(() => {
     if (!ready || !selected?.slug || !/^\/(phim|xem)\/\d+$/.test(pathname))
       return;
@@ -340,7 +362,7 @@ export default function DashboardApp() {
         <span />
       </div>
     );
-  if (pathname === "/dang-nhap")
+  if (currentPath === "/dang-nhap")
     return (
       <LoginPage
         onLogin={handleLogin}
@@ -348,14 +370,14 @@ export default function DashboardApp() {
         close={() => go("/")}
       />
     );
-  if (pathname.startsWith("/admin"))
+  if (currentPath.startsWith("/admin"))
     return user?.role === "admin" ? (
       <AdminPanel
         account={user}
         movies={movies}
         setMovies={setMovies}
         logout={logout}
-        pathname={pathname}
+        pathname={currentPath}
         go={go}
         settings={siteSettings}
         setSettings={setSiteSettings}
@@ -393,7 +415,7 @@ export default function DashboardApp() {
         toggleTheme={toggleTheme}
         onSocialOpen={() => openSocial()}
         socialOpen={socialOpen}
-        pathname={pathname}
+        pathname={currentPath}
         format={format}
         setFormat={setFormat}
         statusFilter={statusFilter}
@@ -420,7 +442,7 @@ export default function DashboardApp() {
           theme={theme}
           toggleTheme={toggleTheme}
           onSocialOpen={() => openSocial()}
-          pathname={pathname}
+          pathname={currentPath}
           format={format}
           setFormat={setFormat}
           statusFilter={statusFilter}
@@ -433,7 +455,7 @@ export default function DashboardApp() {
           setGenre={setGenre}
         />
       )}
-      {pathname === "/" && (
+      {currentPath === "/" && (
         <HomePage
           movies={movies}
           go={go}
@@ -441,7 +463,7 @@ export default function DashboardApp() {
           toggleFavorite={toggleFavorite}
         />
       )}
-      {pathname === "/phim" && (
+      {currentPath === "/phim" && (
         <CatalogPage
           movies={movies}
           query={query}
@@ -461,10 +483,10 @@ export default function DashboardApp() {
           toggleFavorite={toggleFavorite}
         />
       )}
-      {pathname === "/lich-chieu" && (
+      {currentPath === "/lich-chieu" && (
         <SchedulePage movies={movies} go={go} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
-      {pathname.startsWith("/phim/") &&
+      {currentPath.startsWith("/phim/") &&
         (selected ? (
           <MovieDetail
             movie={selected}
@@ -479,12 +501,13 @@ export default function DashboardApp() {
         ) : (
           <NotFoundPage go={go} />
         ))}
-      {pathname.startsWith("/xem/") &&
+      {currentPath.startsWith("/xem/") &&
         (selected ? (
           <WatchPage
-            key={selected.id}
+            key={roomFromPath ? `watchroom-${roomFromPath}` : selected.id}
             movie={selected}
             movies={movies}
+            favorites={favorites}
             go={go}
             onWatch={watch}
             onView={recordView}
@@ -497,7 +520,7 @@ export default function DashboardApp() {
         ) : (
           <NotFoundPage go={go} />
         ))}
-      {pathname === "/yeu-thich" && (
+      {currentPath === "/yeu-thich" && (
         <LibraryPage
           title="Phim yêu thích"
           eyebrow="BỘ SƯU TẬP CỦA BẠN"
@@ -508,7 +531,7 @@ export default function DashboardApp() {
           toggleFavorite={toggleFavorite}
         />
       )}
-      {pathname === "/lich-su" && (
+      {currentPath === "/lich-su" && (
         <HistoryPage
           movies={movies}
           history={history}
@@ -528,7 +551,7 @@ export default function DashboardApp() {
           }}
         />
       )}
-      {pathname === "/tai-khoan" &&
+      {currentPath === "/tai-khoan" &&
         (user ? (
           <ProfilePage
             key={user.id ?? user.email}
@@ -558,11 +581,11 @@ export default function DashboardApp() {
           <NotFoundPage go={go} />
         ))}
       {!["/", "/phim", "/yeu-thich", "/lich-su", "/tai-khoan"].includes(
-        pathname,
+        currentPath,
       ) &&
-        !pathname.startsWith("/nguoi-dung/") &&
-        !pathname.startsWith("/phim/") &&
-        !pathname.startsWith("/xem/") && <NotFoundPage go={go} />}
+        !currentPath.startsWith("/nguoi-dung/") &&
+        !currentPath.startsWith("/phim/") &&
+        !currentPath.startsWith("/xem/") && <NotFoundPage go={go} />}
       <SiteFooter go={go} />
       {socialOpen && user && (
         <SocialPanel
