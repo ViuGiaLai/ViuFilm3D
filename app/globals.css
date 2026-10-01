@@ -4995,7 +4995,59 @@ html[data-mode="light"] .mobile-theme-toggle {
   color: #0f172a;
 }
 
-/* 7. Footer trong Light Mode */
+/* 7. Mobile Bottom Navigation Tabs trong Light Mode */
+html[data-mode="light"] .mobile-bottom-nav {
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+}
+
+html[data-mode="light"] .mobile-bottom-nav button {
+  color: #64748b;
+}
+
+html[data-mode="light"] .mobile-bottom-nav button.active,
+html[data-mode="light"] .mobile-bottom-nav button:active {
+  color: var(--accent);
+}
+
+/* 8. Schedule Tabs (Lịch chiếu) & Episode Tabs trong Light Mode */
+html[data-mode="light"] .schedule-tab-wrap {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+html[data-mode="light"] .schedule-tab {
+  color: #64748b;
+}
+
+html[data-mode="light"] .schedule-tab:hover {
+  color: #0f172a;
+}
+
+html[data-mode="light"] .schedule-tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+html[data-mode="light"] .ep-tab-item {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #475569;
+}
+
+html[data-mode="light"] .ep-tab-item:hover {
+  color: #0f172a;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+html[data-mode="light"] .ep-tab-item.selected {
+  background: var(--brand);
+  color: #ffffff;
+  border-color: var(--brand);
+}
+
+/* 9. Footer trong Light Mode */
 html[data-mode="light"] .ha-footer {
   background: #f1f5f9;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
