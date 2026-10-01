@@ -25,6 +25,13 @@
     width: 82px;
     height: 82px;
   }
+  .public-profile-avatar-aura {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: -65px !important;
+    width: 110px !important;
+    height: 110px !important;
+  }
   .public-profile-summary > div:nth-child(2) {
     min-width: 0;
     width: 100%;

@@ -36,6 +36,8 @@ import {
   storageKeys as storage,
   writeStorage as write,
 } from "@/lib/client-storage";
+import { resolveProfileTheme } from "@/lib/profile-themes";
+import { ProfileCoverArt } from "@/components/site/profile-cover-art";
 import { apiMode } from "@/lib/config";
 import { ApiRequestError } from "@/lib/api-client";
 import type { Dispatch, SetStateAction } from "react";
@@ -687,6 +689,8 @@ export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
     setBio(user.bio ?? "");
     setError("");
   };
+  const theme = resolveProfileTheme(avatarFrameId, user.cultivationXp ?? 0);
+
   return (
     <main
       className={`page-shell profile account-page ${!effectsEnabled ? "account-page--quiet" : ""}`}
@@ -706,9 +710,29 @@ export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
           <Sparkles size={15} /> Hiệu ứng: {effectsEnabled ? "Bật" : "Tắt"}
         </button>
       </div>
-      <section className="account-hero" aria-label="Xem trước hồ sơ">
-        <div className="account-cover" aria-hidden="true" />
+      <section
+        className={`account-hero account-hero-theme--${theme.id}`}
+        aria-label="Xem trước hồ sơ"
+        style={
+          {
+            "--theme-primary": theme.primaryColor,
+            "--theme-accent": theme.accentColor,
+            "--theme-glow": theme.glowColor,
+            "--theme-glow-strong": theme.glowStrong,
+            "--theme-border": theme.borderColor,
+            "--theme-panel-tint": theme.panelTint,
+            "--theme-card-border": theme.cardBorder,
+            "--theme-bg": theme.bgGradient,
+            "--theme-bg-light": theme.bgGradientLight || theme.bgGradient,
+            "--theme-panel-tint-light": theme.panelTintLight || "rgba(254, 243, 199, 0.4)",
+            "--theme-glow-light": theme.glowLight || "rgba(0, 0, 0, 0.08)",
+            "--theme-border-light": theme.borderLight || "rgba(0, 0, 0, 0.08)",
+          } as React.CSSProperties
+        }
+      >
+        <ProfileCoverArt theme={theme} />
         <div className="account-identity">
+          <div className="public-profile-avatar-aura" aria-hidden="true" />
           <UserAvatar
             avatarId={avatarId}
             avatarVersion={user.avatarVersion}
@@ -719,7 +743,7 @@ export function ProfilePage({ user, setUser, go, logout }: ProfilePageProps) {
             cultivationXp={user.cultivationXp}
           />
           <div className="account-identity-copy">
-            <span className="mini-label">ĐẠO HỮU VIUFILM3D</span>
+            <span className="mini-label">{theme.caveName}</span>
             <h2>{name || "Tên hiển thị của bạn"}</h2>
             <div className="account-identity-badges">
               {user.publicId && <CultivationBadge xp={user.cultivationXp} />}

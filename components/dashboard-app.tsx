@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Check, Settings } from "lucide-react";
 import { movieSeed, type Movie } from "@/lib/movies";
 import { movieGateway } from "@/lib/movie-gateway";
@@ -51,10 +51,23 @@ const getMovieFromPath = (path: string, list: Movie[]) => {
   return list.find((m) => m.slug === seg || String(m.id) === seg);
 };
 
+// Global in-memory cache to prevent remount flashing and duplicate API fetches across route transitions
+let globalReady = false;
+let globalMovies: Movie[] | null = null;
+let globalSettings: SiteSettings | null = null;
+let globalUser: Account | null = null;
+let globalFavorites: number[] | null = null;
+let globalFollows: number[] | null = null;
+let globalHistory: HistoryItem[] | null = null;
+
 export default function DashboardApp() {
-  const router = useRouter(),
-    pathname = usePathname();
-  const [routePath, setRoutePath] = useState(pathname);
+  const pathname = usePathname();
+  const [routePath, setRoutePath] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.location.pathname + window.location.search;
+    }
+    return pathname;
+  });
 
   useEffect(() => {
     setRoutePath(pathname);
@@ -73,9 +86,13 @@ export default function DashboardApp() {
       const custom = e as CustomEvent<Account>;
       if (custom.detail) {
         setUser(custom.detail);
+        globalUser = custom.detail;
       } else {
         const stored = read<Account | null>(storage.user, null);
-        if (stored) setUser(stored);
+        if (stored) {
+          setUser(stored);
+          globalUser = stored;
+        }
       }
     };
     window.addEventListener("storage", handleUserUpdate);
@@ -87,14 +104,14 @@ export default function DashboardApp() {
   }, []);
 
   const [movies, setMovies] = useState<Movie[]>(() =>
-      [...movieSeed].sort((a, b) => b.id - a.id),
+      globalMovies ?? [...movieSeed].sort((a, b) => b.id - a.id),
     ),
-    [favorites, setFavorites] = useState<number[]>([]),
-    [follows, setFollows] = useState<number[]>([]),
-    [history, setHistory] = useState<HistoryItem[]>([]);
-  const [user, setUser] = useState<Account | null>(null),
-    [ready, setReady] = useState(false),
-    [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSettings),
+    [favorites, setFavorites] = useState<number[]>(() => globalFavorites ?? []),
+    [follows, setFollows] = useState<number[]>(() => globalFollows ?? []),
+    [history, setHistory] = useState<HistoryItem[]>(() => globalHistory ?? []);
+  const [user, setUser] = useState<Account | null>(() => globalUser),
+    [ready, setReady] = useState(() => globalReady),
+    [siteSettings, setSiteSettings] = useState<SiteSettings>(() => globalSettings ?? defaultSettings),
     [theme, setTheme] = useState<ThemeMode>("dark"),
     [query, setQuery] = useState(""),
     [genre, setGenre] = useState("Tất cả"),
@@ -122,6 +139,11 @@ export default function DashboardApp() {
           : "dark";
     setTheme(initialTheme);
     document.documentElement.dataset.mode = initialTheme;
+    // If data is already in memory from a previous route, mark ready immediately
+    if (globalReady && globalMovies && globalSettings) {
+      setReady(true);
+    }
+
     void Promise.allSettled([
       movieGateway.list(),
       adminGateway.getSettings(),
@@ -136,32 +158,38 @@ export default function DashboardApp() {
       if (catalogResult.status === "fulfilled") {
         const catalog = [...catalogResult.value].sort((a, b) => b.id - a.id);
         const fallback = [...movieSeed].sort((a, b) => b.id - a.id);
-        setMovies(
-          catalog.length || apiMode === "production" ? catalog : fallback,
-        );
+        const resolved = catalog.length || apiMode === "production" ? catalog : fallback;
+        setMovies(resolved);
+        globalMovies = resolved;
       } else {
-        setMovies(
-          apiMode === "mock" ? [...movieSeed].sort((a, b) => b.id - a.id) : [],
-        );
+        const fallback = apiMode === "mock" ? [...movieSeed].sort((a, b) => b.id - a.id) : [];
+        setMovies(fallback);
+        globalMovies = fallback;
         failures.push("danh sách phim");
       }
 
       if (settingsResult.status === "fulfilled") {
         setSiteSettings(settingsResult.value);
+        globalSettings = settingsResult.value;
       } else {
         setSiteSettings(defaultSettings);
+        globalSettings = defaultSettings;
         failures.push("cấu hình website");
       }
 
       if (accountResult.status === "fulfilled") {
         setUser(accountResult.value);
+        globalUser = accountResult.value;
         if (accountResult.value?.role === "user" && apiMode === "production") {
           try {
             const library = await viewerGateway.library();
             if (!active) return;
             setFavorites(library.favorites);
+            globalFavorites = library.favorites;
             setFollows(library.follows);
+            globalFollows = library.follows;
             setHistory(library.history);
+            globalHistory = library.history;
           } catch {
             setFavorites([]);
             setFollows([]);
@@ -174,6 +202,7 @@ export default function DashboardApp() {
         }
       } else {
         setUser(null);
+        globalUser = null;
         localStorage.removeItem(storage.user);
         failures.push("phiên đăng nhập");
       }
@@ -181,6 +210,7 @@ export default function DashboardApp() {
       if (failures.length) {
         setToast("Một số nội dung chưa tải được. Vui lòng tải lại trang sau.");
       }
+      globalReady = true;
       setReady(true);
     });
     return () => {
@@ -188,6 +218,26 @@ export default function DashboardApp() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+
+  useEffect(() => {
+    globalMovies = movies;
+  }, [movies]);
+  useEffect(() => {
+    globalSettings = siteSettings;
+  }, [siteSettings]);
+  useEffect(() => {
+    globalUser = user;
+  }, [user]);
+  useEffect(() => {
+    globalFavorites = favorites;
+  }, [favorites]);
+  useEffect(() => {
+    globalFollows = follows;
+  }, [follows]);
+  useEffect(() => {
+    globalHistory = history;
+  }, [history]);
+
   const flash = (message: string) => {
     setToast(message);
     if (timer.current) clearTimeout(timer.current);
@@ -203,11 +253,12 @@ export default function DashboardApp() {
   };
   const go = (path: string) => {
     setMobile(false);
-    setRoutePath(path);
     if (typeof window !== "undefined") {
+      const current = window.location.pathname + window.location.search;
+      if (current === path) return;
       window.history.pushState(null, "", path);
     }
-    router.push(path);
+    setRoutePath(path);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const toggleFavorite = (id: number) => {
@@ -366,13 +417,39 @@ export default function DashboardApp() {
   const roomFromPath = roomMatch ? roomMatch[1] : null;
 
   useEffect(() => {
-    if (!ready || !selected?.slug || !/^\/(phim|xem)\/\d+$/.test(pathname))
+    if (!ready || !selected?.slug || !/^\/(phim|xem)\/\d+$/.test(currentPath))
       return;
-    const section = pathname.split("/")[1];
-    router.replace(`/${section}/${selected.slug}${window.location.search}`, {
-      scroll: false,
-    });
-  }, [ready, selected?.slug, pathname, router]);
+    const section = currentPath.split("/")[1];
+    const canonical = `/${section}/${selected.slug}${window.location.search}`;
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", canonical);
+    }
+    setRoutePath(canonical);
+  }, [ready, selected?.slug, currentPath]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (currentPath === "/") document.title = "ViuFilm3D — Thế giới hoạt hình nguyên bản";
+    else if (currentPath === "/phim") document.title = "Kho phim | ViuFilm3D";
+    else if (currentPath === "/lich-chieu") document.title = "Lịch chiếu | ViuFilm3D";
+    else if (currentPath === "/yeu-thich") document.title = "Phim yêu thích | ViuFilm3D";
+    else if (currentPath === "/lich-su") document.title = "Lịch sử xem | ViuFilm3D";
+    else if (currentPath === "/tai-khoan") document.title = "Tài khoản | ViuFilm3D";
+    else if (currentPath === "/dang-nhap") document.title = "Đăng nhập | ViuFilm3D";
+    else if (currentPath === "/admin") document.title = "Tổng quan quản trị | ViuFilm3D";
+    else if (currentPath === "/admin/phim") document.title = "Quản lý phim | ViuFilm3D";
+    else if (currentPath === "/admin/lich-chieu") document.title = "Lịch chiếu quản trị | ViuFilm3D";
+    else if (currentPath === "/admin/nguoi-dung") document.title = "Quản lý người dùng | ViuFilm3D";
+    else if (currentPath === "/admin/binh-luan") document.title = "Quản lý bình luận | ViuFilm3D";
+    else if (currentPath === "/admin/vien-trang-tri") document.title = "Viền & cảnh giới | ViuFilm3D";
+    else if (currentPath === "/admin/the-gioi") document.title = "Thế Giới — Luận Đạo | ViuFilm3D";
+    else if (currentPath === "/admin/nhat-ky") document.title = "Nhật ký hỗ trợ | ViuFilm3D";
+    else if (currentPath === "/admin/cai-dat") document.title = "Cấu hình hệ thống | ViuFilm3D";
+    else if (selected?.title) {
+      if (currentPath.startsWith("/xem/")) document.title = `Xem phim ${selected.title} | ViuFilm3D`;
+      else document.title = `${selected.title} | ViuFilm3D`;
+    }
+  }, [currentPath, selected?.title]);
   if (!ready)
     return (
       <div className="ha-loading">

@@ -8,6 +8,8 @@ import {
   CultivationProgress,
 } from "@/components/ui/cultivation-badge";
 import { socialGateway } from "@/lib/social-gateway";
+import { resolveProfileTheme } from "@/lib/profile-themes";
+import { ProfileCoverArt } from "@/components/site/profile-cover-art";
 import type { PublicProfile } from "@/lib/social-types";
 import type { Account } from "@/lib/app-types";
 import type { Navigate } from "@/components/site/types";
@@ -99,19 +101,38 @@ export default function PublicProfilePage({
     );
   }
 
+  const isOwner = Boolean(viewer && (viewer.publicId === id || viewer.id === profile.id));
+  const activeAvatarFrameId = (isOwner && viewer?.avatarFrameId) ? viewer.avatarFrameId : profile.avatarFrameId;
+  const activeCultivationXp = (isOwner && typeof viewer?.cultivationXp === "number") ? viewer.cultivationXp : profile.cultivationXp;
+  const theme = resolveProfileTheme(activeAvatarFrameId, activeCultivationXp);
+
   return (
-    <main className="page-shell public-profile">
+    <main
+      className={`page-shell public-profile public-profile-theme--${theme.id}`}
+      style={
+        {
+          "--theme-primary": theme.primaryColor,
+          "--theme-accent": theme.accentColor,
+          "--theme-glow": theme.glowColor,
+          "--theme-glow-strong": theme.glowStrong,
+          "--theme-border": theme.borderColor,
+          "--theme-panel-tint": theme.panelTint,
+          "--theme-card-border": theme.cardBorder,
+          "--theme-bg": theme.bgGradient,
+          "--theme-bg-light": theme.bgGradientLight || theme.bgGradient,
+          "--theme-panel-tint-light": theme.panelTintLight || "rgba(254, 243, 199, 0.4)",
+          "--theme-glow-light": theme.glowLight || "rgba(0, 0, 0, 0.08)",
+          "--theme-border-light": theme.borderLight || "rgba(0, 0, 0, 0.08)",
+        } as React.CSSProperties
+      }
+    >
       <div className="public-profile-hero">
-        <div className="public-profile-cover" aria-hidden="true">
-          <span>
-            ĐỘNG PHỦ <i>·</i> TIÊN LỘ
-          </span>
-          <b>Vân sơn · Tụ linh</b>
-        </div>
+        <ProfileCoverArt theme={theme} />
         <div className="public-profile-summary">
+          <div className="public-profile-avatar-aura" aria-hidden="true" />
           <UserAvatar
-            frameId={profile.avatarFrameId}
-            cultivationXp={profile.cultivationXp}
+            frameId={activeAvatarFrameId}
+            cultivationXp={activeCultivationXp}
             avatarId={profile.avatarId}
             avatarVersion={profile.avatarVersion}
             userId={profile.id}
@@ -119,7 +140,7 @@ export default function PublicProfilePage({
             size="large"
           />
           <div>
-            <span className="mini-label">HỒ SƠ VIUFILM3D</span>
+            <span className="mini-label">{theme.caveName}</span>
             <h1>{profile.name}</h1>
             <CultivationBadge xp={profile.cultivationXp} />
             <p>
