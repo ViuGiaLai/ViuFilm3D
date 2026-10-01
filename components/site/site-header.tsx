@@ -204,6 +204,8 @@ export default function SiteHeader({
         </div>
         <div className="ha-actions">
           <button
+            type="button"
+            className="ha-theme-toggle"
             onClick={toggleTheme}
             title={
               theme === "dark"
@@ -216,7 +218,7 @@ export default function SiteHeader({
                 : "Chuyển sang chế độ tối"
             }
           >
-            {theme === "dark" ? <Sun /> : <Moon />}
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           {user ? (
             <>
@@ -516,8 +518,8 @@ export function MobileNav({
   go,
   close,
   logout,
-  theme: _theme,
-  toggleTheme: _toggleTheme,
+  theme,
+  toggleTheme,
   onSocialOpen: _onSocialOpen,
   pathname = "/",
   format = "all",
@@ -671,6 +673,20 @@ export function MobileNav({
         >
           Lịch sử xem
         </button>
+        {toggleTheme && (
+          <div className="mobile-theme-row">
+            <span>Giao diện</span>
+            <button
+              type="button"
+              className="mobile-theme-toggle"
+              onClick={toggleTheme}
+              aria-label="Đổi giao diện sáng/tối"
+            >
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+              <span>{theme === "dark" ? "Chế độ Sáng" : "Chế độ Tối"}</span>
+            </button>
+          </div>
+        )}
         {user ? (
           <>
             <button onClick={() => go("/tai-khoan")}>Tài khoản</button>

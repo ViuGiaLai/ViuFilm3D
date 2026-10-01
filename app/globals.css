@@ -4305,8 +4305,7 @@ video {
     background: #111722;
     box-shadow: none;
   }
-  .ha-actions .user-link span,
-  .ha-actions > button:first-child {
+  .ha-actions .user-link span {
     display: none;
   }
   .hero-3d {
@@ -4555,6 +4554,41 @@ video {
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.06);
     color: #cbd5e1;
+  }
+  .mobile-theme-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 12px;
+    margin: 10px 0 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .mobile-theme-row span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+  .mobile-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mobile-theme-toggle:hover,
+  .mobile-theme-toggle:active {
+    background: rgba(245, 165, 36, 0.15);
+    border-color: #f5a524;
+    color: #f5a524;
   }
 
   @keyframes mobileDrawerIn {
@@ -4945,6 +4979,18 @@ html[data-mode="light"] .mobile-layer aside > button:not(.mobile-close) {
 
 html[data-mode="light"] .mobile-close {
   background: rgba(0, 0, 0, 0.05);
+  color: #0f172a;
+}
+
+html[data-mode="light"] .mobile-theme-row {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+html[data-mode="light"] .mobile-theme-row span {
+  color: #64748b;
+}
+html[data-mode="light"] .mobile-theme-toggle {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.1);
   color: #0f172a;
 }
 
@@ -5888,9 +5934,27 @@ html[data-mode="light"] .ha-search {
     border-left: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .ha-actions .user-link,
-  .ha-actions > button:last-child {
-    display: none;
+  .ha-actions .user-link {
+    display: none !important;
+  }
+
+  .ha-actions > .ha-theme-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .ha-actions > .ha-theme-toggle svg {
+    width: 18px;
+    height: 18px;
   }
 
   .ha-nav {
