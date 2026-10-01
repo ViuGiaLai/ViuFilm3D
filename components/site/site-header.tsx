@@ -223,7 +223,7 @@ export default function SiteHeader({
           {user ? (
             <>
               <button
-                className="social-trigger"
+                className="social-trigger ha-desktop-only"
                 onClick={onSocialOpen}
                 title="Bằng hữu và mật thư"
                 aria-label="Mở bằng hữu và mật thư"
@@ -302,6 +302,7 @@ export default function SiteHeader({
               </div>
               {user.role === "admin" && (
                 <button
+                  className="ha-desktop-only"
                   onClick={() => go("/admin")}
                   title="Trang quản trị"
                   aria-label="Trang quản trị"
@@ -309,7 +310,7 @@ export default function SiteHeader({
                   <Settings />
                 </button>
               )}
-              <button className="user-link" onClick={() => go("/tai-khoan")}>
+              <button className="user-link ha-desktop-only" onClick={() => go("/tai-khoan")}>
                 <UserAvatar
                   frameId={user.avatarFrameId}
                   cultivationXp={user.cultivationXp}
@@ -321,12 +322,12 @@ export default function SiteHeader({
                 />
                 <span>{user.name.split(" ")[0]}</span>
               </button>
-              <button onClick={logout} title="Đăng xuất">
+              <button className="ha-desktop-only" onClick={logout} title="Đăng xuất">
                 <LogOut />
               </button>
             </>
           ) : (
-            <button className="user-link" onClick={() => go("/dang-nhap")}>
+            <button className="user-link ha-desktop-only" onClick={() => go("/dang-nhap")}>
               <User />
               <span>Đăng nhập</span>
             </button>

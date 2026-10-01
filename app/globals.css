@@ -4305,8 +4305,9 @@ video {
     background: #111722;
     box-shadow: none;
   }
-  .ha-actions .user-link span {
-    display: none;
+  .ha-actions .user-link span,
+  .ha-desktop-only {
+    display: none !important;
   }
   .hero-3d {
     padding: 100px 20px 55px;
@@ -5846,9 +5847,10 @@ html[data-mode="light"] .ha-search {
 
   .ha-header-inner {
     height: 56px;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
-    padding-inline: 12px;
+    padding-inline: 10px;
+    flex-wrap: nowrap;
   }
 
   .mobile-menu {
@@ -5901,6 +5903,7 @@ html[data-mode="light"] .ha-search {
   }
 
   .ha-search {
+    order: 1;
     position: static;
     height: 36px;
     min-height: 36px;
@@ -5915,6 +5918,7 @@ html[data-mode="light"] .ha-search {
     display: flex;
     align-items: center;
     padding: 0;
+    margin: 0;
   }
 
   .ha-search input {
@@ -5934,11 +5938,21 @@ html[data-mode="light"] .ha-search {
     border-left: 1px solid rgba(255, 255, 255, 0.08);
   }
 
+  .ha-actions {
+    order: 2;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
   .ha-actions .user-link {
     display: none !important;
   }
 
-  .ha-actions > .ha-theme-toggle {
+  .ha-actions > .ha-theme-toggle,
+  .ha-actions > .notification-wrapper > button {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
@@ -5950,11 +5964,21 @@ html[data-mode="light"] .ha-search {
     background: transparent;
     border: none;
     cursor: pointer;
+    padding: 0;
   }
 
-  .ha-actions > .ha-theme-toggle svg {
-    width: 18px;
-    height: 18px;
+  .ha-actions > .ha-theme-toggle:hover,
+  .ha-actions > .ha-theme-toggle:active,
+  .ha-actions > .notification-wrapper > button:hover,
+  .ha-actions > .notification-wrapper > button:active {
+    color: var(--text);
+    background: var(--panel2);
+  }
+
+  .ha-actions > .ha-theme-toggle svg,
+  .ha-actions > .notification-wrapper svg {
+    width: 17px;
+    height: 17px;
   }
 
   .ha-nav {
