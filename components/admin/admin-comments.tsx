@@ -5,23 +5,29 @@ import { Eye, EyeOff, MessageCircle, Trash2, RefreshCw } from "lucide-react";
 import { adminGateway } from "@/lib/admin-gateway";
 import type { ModerationComment } from "@/lib/comments";
 import { apiMode } from "@/lib/config";
+import { adminDataCache } from "@/lib/admin-cache";
 
 export default function AdminComments() {
-  const [comments, setComments] = useState<ModerationComment[]>([]);
+  const cached = adminDataCache.comments;
+  const [comments, setComments] = useState<ModerationComment[]>(
+    cached?.items ?? [],
+  );
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    !cached && comments.length === 0,
+  );
   const [status, setStatus] = useState("all");
   const [keyword, setKeyword] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [revision, setRevision] = useState(0);
   const [pending, setPending] = useState<number[]>([]);
   const busy = useRef(new Set<number>());
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    if (comments.length === 0) setLoading(true);
     setMessage("");
     void adminGateway
       .listComments(page * 50, status, search)
@@ -30,10 +36,14 @@ export default function AdminComments() {
           if (active) {
             setComments(items.items);
             setHasMore(items.hasMore);
+            if (page === 0 && status === "all" && !search) {
+              adminDataCache.comments = items;
+            }
           }
         },
         () => {
-          if (active) setMessage("Chưa thể tải bình luận.");
+          if (active && comments.length === 0)
+            setMessage("Chưa thể tải bình luận.");
         },
       )
       .finally(() => {
@@ -49,10 +59,26 @@ export default function AdminComments() {
     busy.current.add(comment.id);
     setPending([...busy.current]);
     const next = comment.status === "visible" ? "hidden" : "visible";
+
+    // Optimistic UI update
+    setComments((prev) =>
+      prev.map((c) => (c.id === comment.id ? { ...c, status: next } : c)),
+    );
+
     try {
       await adminGateway.setCommentStatus(comment.id, next);
-      setRevision((value) => value + 1);
+      if (adminDataCache.comments) {
+        adminDataCache.comments.items = adminDataCache.comments.items.map((c) =>
+          c.id === comment.id ? { ...c, status: next } : c,
+        );
+      }
     } catch {
+      // Revert on error
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === comment.id ? { ...c, status: comment.status } : c,
+        ),
+      );
       setMessage("Chưa thể cập nhật bình luận.");
     } finally {
       busy.current.delete(comment.id);

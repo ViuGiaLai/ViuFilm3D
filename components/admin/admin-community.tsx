@@ -5,6 +5,8 @@ import { avatarFrames, frameGroups } from "@/lib/avatar-frames";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { Viewer } from "@/lib/admin-data";
 import type { WorldModeration } from "@/lib/admin-community";
+import { adminDataCache } from "@/lib/admin-cache";
+
 export default function AdminCommunity({
   section,
   viewers,
@@ -14,57 +16,67 @@ export default function AdminCommunity({
   viewers: Viewer[];
   support: (v: Viewer) => void;
 }) {
-  const [items, setItems] = useState<WorldModeration[]>([]),
-    [audit, setAudit] = useState<
-      Awaited<ReturnType<typeof adminGateway.communityAudit>>
-    >([]);
-  const [q, setQ] = useState(""),
-    [status, setStatus] = useState("all"),
-    [page, setPage] = useState(0),
-    [hasMore, setHasMore] = useState(false),
-    [revision, setRevision] = useState(0),
-    [loading, setLoading] = useState(false),
-    [error, setError] = useState("");
-  const [selected, setSelected] = useState<number | null>(null),
-    [reason, setReason] = useState(""),
-    [busy, setBusy] = useState(false);
+  const [items, setItems] = useState<WorldModeration[]>(
+    adminDataCache.worldMessages?.items ?? [],
+  );
+  const [audit, setAudit] = useState<
+    Awaited<ReturnType<typeof adminGateway.communityAudit>>
+  >(adminDataCache.auditLogs ?? []);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("all");
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(
+    adminDataCache.worldMessages?.hasMore ?? false,
+  );
+  const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const lock = useRef(false);
+
   useEffect(() => {
     let active = true;
     setError("");
     if (section === "frames") return;
-    setLoading(true);
-    const timer = setTimeout(
-      () =>
-        void (
-          section === "world"
-            ? adminGateway.worldMessages(page * 50, status, q)
-            : adminGateway.communityAudit()
-        )
-          .then(
-            (value) => {
-              if (!active) return;
-              if (Array.isArray(value)) setAudit(value);
-              else {
-                setItems(value.items);
-                setHasMore(value.hasMore);
-              }
-            },
-            (e) => {
-              if (active)
-                setError(
-                  e instanceof Error ? e.message : "Không thể tải dữ liệu.",
-                );
-            },
-          )
-          .finally(() => {
-            if (active) setLoading(false);
-          }),
-      250,
-    );
+
+    const hasData =
+      section === "world" ? items.length > 0 : audit.length > 0;
+    if (!hasData) setLoading(true);
+
+    void (
+      section === "world"
+        ? adminGateway.worldMessages(page * 50, status, q)
+        : adminGateway.communityAudit()
+    )
+      .then(
+        (value) => {
+          if (!active) return;
+          if (Array.isArray(value)) {
+            adminDataCache.auditLogs = value;
+            setAudit(value);
+          } else {
+            if (page === 0 && status === "all" && !q) {
+              adminDataCache.worldMessages = value;
+            }
+            setItems(value.items);
+            setHasMore(value.hasMore);
+          }
+        },
+        (e) => {
+          if (active && !hasData)
+            setError(
+              e instanceof Error ? e.message : "Không thể tải dữ liệu.",
+            );
+        },
+      )
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
     return () => {
       active = false;
-      clearTimeout(timer);
     };
   }, [section, page, status, q, revision]);
   const moderate = async (row: WorldModeration) => {
@@ -72,16 +84,25 @@ export default function AdminCommunity({
     lock.current = true;
     setBusy(true);
     setError("");
+    const nextStatus = row.status === "visible" ? "hidden" : "visible";
+    // Optimistic UI update
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === row.id ? { ...item, status: nextStatus } : item,
+      ),
+    );
     try {
-      await adminGateway.moderateWorld(
-        row.id,
-        row.status === "visible" ? "hidden" : "visible",
-        reason,
-      );
+      await adminGateway.moderateWorld(row.id, nextStatus, reason);
       setSelected(null);
       setReason("");
       setRevision((v) => v + 1);
     } catch (e) {
+      // Revert on error
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === row.id ? { ...item, status: row.status } : item,
+        ),
+      );
       setError(e instanceof Error ? e.message : "Chưa thể kiểm duyệt.");
     } finally {
       lock.current = false;

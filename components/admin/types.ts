@@ -21,4 +21,7 @@ export type AdminPanelProps = {
   go: Navigate;
   settings: SiteSettings;
   setSettings: Dispatch<SetStateAction<SiteSettings>>;
+  theme?: "light" | "dark";
+  toggleTheme?: () => void;
 };
+

@@ -18,10 +18,13 @@ import {
   Globe2,
   ScrollText,
   ShieldCheck,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { BrandLogo as Logo } from "@/components/ui/brand-logo";
 import { adminGateway } from "@/lib/admin-gateway";
+import { adminDataCache } from "@/lib/admin-cache";
 import { viewerSeed, type SiteSettings, type Viewer } from "@/lib/admin-data";
 import { toSlug } from "@/lib/format";
 import { movieGateway } from "@/lib/movie-gateway";
@@ -53,6 +56,8 @@ export default function AdminPanel({
   go,
   settings,
   setSettings,
+  theme,
+  toggleTheme,
 }: AdminPanelProps) {
   const section = pathname.includes("/admin/vien-trang-tri")
     ? "frames"
@@ -85,6 +90,20 @@ export default function AdminPanel({
       viewer.role === "admin" &&
       (account.id ? viewer.id === account.id : viewer.email === account.email),
   );
+  const daysOfWeek = [
+    "Chủ nhật",
+    "Thứ 2",
+    "Thứ 3",
+    "Thứ 4",
+    "Thứ 5",
+    "Thứ 6",
+    "Thứ 7",
+  ];
+  const currentDayName = daysOfWeek[new Date().getDay()];
+  const todayAiringCount = movies.filter(
+    (m) => m.updateDay === currentDayName && m.status === "Đang chiếu",
+  ).length;
+
   const navigation = [
     {
       key: "dashboard",
@@ -98,12 +117,15 @@ export default function AdminPanel({
       url: "/admin/phim",
       label: "Kho phim",
       icon: Clapperboard,
+      badge: movies.length ? String(movies.length) : undefined,
     },
     {
       key: "schedule",
       url: "/admin/lich-chieu",
       label: "Lịch chiếu",
       icon: CalendarClock,
+      badge: todayAiringCount > 0 ? `${todayAiringCount} hôm nay` : undefined,
+      badgeHighlight: todayAiringCount > 0,
     },
     {
       key: "users",
@@ -111,6 +133,7 @@ export default function AdminPanel({
       label: "Người dùng",
       icon: Users,
       group: "CỘNG ĐỒNG",
+      badge: viewers.length ? String(viewers.length) : undefined,
     },
     {
       key: "comments",
@@ -145,7 +168,10 @@ export default function AdminPanel({
     void adminGateway
       .listViewers()
       .then((items) => {
-        if (active) setViewers(items);
+        if (active) {
+          setViewers(items);
+          adminDataCache.viewers = items;
+        }
       })
       .catch((error) => {
         if (!active) return;
@@ -157,6 +183,33 @@ export default function AdminPanel({
           tone: "error",
         });
       });
+
+    // Background pre-fetch for instant 0ms tab navigation
+    if (!adminDataCache.comments) {
+      void adminGateway
+        .listComments(0, "all", "")
+        .then((res) => {
+          adminDataCache.comments = res;
+        })
+        .catch(() => {});
+    }
+    if (!adminDataCache.worldMessages) {
+      void adminGateway
+        .worldMessages(0, "all", "")
+        .then((res) => {
+          adminDataCache.worldMessages = res;
+        })
+        .catch(() => {});
+    }
+    if (!adminDataCache.auditLogs) {
+      void adminGateway
+        .communityAudit()
+        .then((res) => {
+          adminDataCache.auditLogs = res;
+        })
+        .catch(() => {});
+    }
+
     return () => {
       active = false;
     };
@@ -313,16 +366,43 @@ export default function AdminPanel({
       notifyError(error);
     }
   };
-  const sectionTitle: Record<string, string> = {
-    dashboard: "Tổng quan hệ thống",
-    movies: "Quản lý kho phim",
-    schedule: "Lịch phát hành",
-    users: "Quản lý người dùng",
-    comments: "Quản lý bình luận",
-    settings: "Cấu hình hệ thống",
-    frames: "Viền trang trí & tiên lộ",
-    world: "Thế Giới — Luận Đạo",
-    audit: "Nhật ký hỗ trợ cộng đồng",
+  const sectionTitle: Record<string, { title: string; subtitle: string }> = {
+    dashboard: {
+      title: "Tổng quan điều hành",
+      subtitle: "Báo cáo số liệu streaming, xu hướng người xem và sức khỏe hệ thống",
+    },
+    movies: {
+      title: "Quản lý kho phim",
+      subtitle: "Quản trị danh mục phim, cập nhật số tập, chất lượng và trạng thái phát hành",
+    },
+    schedule: {
+      title: "Lịch phát hành tuần",
+      subtitle: "Theo dõi và xếp lịch cập nhật tập mới các ngày trong tuần",
+    },
+    users: {
+      title: "Quản lý người dùng",
+      subtitle: "Quản lý tài khoản khán giả, cảnh giới tu vi và phân quyền thành viên",
+    },
+    comments: {
+      title: "Kiểm duyệt bình luận",
+      subtitle: "Kiểm tra, phê duyệt và làm sạch tương tác dưới các tập phim",
+    },
+    frames: {
+      title: "Viền trang trí & Tiên Lộ",
+      subtitle: "Cấu hình khung avatar Tiên Lộ và danh xưng cảnh giới tu vi",
+    },
+    world: {
+      title: "Thế Giới — Luận Đạo",
+      subtitle: "Quản trị kênh trò chuyện toàn thể giới tu chân thời gian thực",
+    },
+    audit: {
+      title: "Nhật ký hỗ trợ",
+      subtitle: "Lịch sử can thiệp hỗ trợ hồ sơ và thay đổi hệ thống",
+    },
+    settings: {
+      title: "Cấu hình hệ thống",
+      subtitle: "Thiết lập thông số website, bộ nhớ đệm và bảo trì",
+    },
   };
   return (
     <div className="admin-layout">
@@ -337,25 +417,34 @@ export default function AdminPanel({
       )}
       <aside>
         <Logo />
-        {navigation.map(({ key, url, label, icon: Icon, group }) => (
-          <div className="admin-nav-entry" key={key}>
-            {group && <p className="admin-nav-group">{group}</p>}
-            <button
-              type="button"
-              className={`admin-nav-btn ${section === key ? "active" : ""}`}
-              aria-current={section === key ? "page" : undefined}
-              onClick={() => go(url)}
-            >
-              <span className="admin-nav-icon">
-                <Icon aria-hidden="true" />
-              </span>
-              <span>{label}</span>
-              {section === key && (
-                <i className="admin-nav-dot" aria-hidden="true" />
-              )}
-            </button>
-          </div>
-        ))}
+        {navigation.map(
+          ({ key, url, label, icon: Icon, group, badge, badgeHighlight }) => (
+            <div className="admin-nav-entry" key={key}>
+              {group && <p className="admin-nav-group">{group}</p>}
+              <button
+                type="button"
+                className={`admin-nav-btn ${section === key ? "active" : ""}`}
+                aria-current={section === key ? "page" : undefined}
+                onClick={() => go(url)}
+              >
+                <span className="admin-nav-icon">
+                  <Icon aria-hidden="true" />
+                </span>
+                <span className="admin-nav-label">{label}</span>
+                {badge && (
+                  <span
+                    className={`admin-nav-badge ${badgeHighlight ? "highlight" : ""}`}
+                  >
+                    {badge}
+                  </span>
+                )}
+                {section === key && (
+                  <i className="admin-nav-dot" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          ),
+        )}
         <button
           className="admin-nav-btn admin-site-link"
           onClick={() => go("/")}
@@ -370,37 +459,88 @@ export default function AdminPanel({
         </button>
       </aside>
       <main>
-        <header>
-          <div>
-            <p className="mini-label">VIUFILM3D STUDIO</p>
-            <h1>{sectionTitle[section]}</h1>
+        <header className="admin-header-modern">
+          <div className="admin-header-main">
+            <div className="admin-studio-badge">
+              <span className="live-dot" />
+              <span>VIUFILM3D STUDIO CMS</span>
+              <span className="api-mode-badge">{apiMode}</span>
+            </div>
+            <h1>{sectionTitle[section]?.title ?? "Quản trị hệ thống"}</h1>
+            <p className="admin-header-subtitle">
+              {sectionTitle[section]?.subtitle ??
+                "Hệ thống quản lý nội dung phim 3D & Tu vi"}
+            </p>
           </div>
-          <div className="admin-profile">
-            <span className="api-mode-badge">{apiMode}</span>
+          <div className="admin-header-actions">
+            <div
+              className="admin-system-health"
+              title="Tình trạng dịch vụ hạ tầng đám mây"
+            >
+              <span className="health-item active">
+                <span className="health-dot green" />
+                <small>Supabase DB</small>
+              </span>
+              <span className="health-item active">
+                <span className="health-dot blue" />
+                <small>R2 CDN</small>
+              </span>
+            </div>
+
             <button
               type="button"
-              className="admin-account-link"
-              onClick={() => go("/tai-khoan")}
-              aria-label="Mở hồ sơ quản trị của bạn"
+              className="admin-header-action-btn admin-add-btn"
+              onClick={() => setEditing(null)}
+              title="Thêm phim mới vào kho"
             >
-              <span className="admin-account-copy">
-                <strong>{identity?.name ?? account.name}</strong>
-                <small>
-                  <ShieldCheck size={12} aria-hidden="true" />
-                  Quản trị viên
-                </small>
-              </span>
-              <UserAvatar
-                name={identity?.name ?? account.name}
-                userId={identity?.id ?? account.id}
-                avatarId={identity?.avatarId ?? account.avatarId}
-                avatarVersion={
-                  identity ? identity.avatarVersion : account.avatarVersion
-                }
-                frameId={identity?.avatarFrameId ?? account.avatarFrameId}
-                cultivationXp={identity?.cultivationXp ?? account.cultivationXp}
-              />
+              <Plus size={16} />
+              <span>Thêm phim</span>
             </button>
+
+            {toggleTheme && (
+              <button
+                type="button"
+                className="admin-header-action-btn admin-theme-toggle"
+                onClick={toggleTheme}
+                title={
+                  theme === "light"
+                    ? "Chuyển sang giao diện Tối"
+                    : "Chuyển sang giao diện Sáng"
+                }
+                aria-label="Đổi giao diện Sáng/Tối"
+              >
+                {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+              </button>
+            )}
+
+            <div className="admin-profile">
+              <button
+                type="button"
+                className="admin-account-link"
+                onClick={() => go("/tai-khoan")}
+                aria-label="Mở hồ sơ quản trị của bạn"
+              >
+                <span className="admin-account-copy">
+                  <strong>{identity?.name ?? account.name}</strong>
+                  <small>
+                    <ShieldCheck size={12} aria-hidden="true" />
+                    Quản trị viên
+                  </small>
+                </span>
+                <UserAvatar
+                  name={identity?.name ?? account.name}
+                  userId={identity?.id ?? account.id}
+                  avatarId={identity?.avatarId ?? account.avatarId}
+                  avatarVersion={
+                    identity ? identity.avatarVersion : account.avatarVersion
+                  }
+                  frameId={identity?.avatarFrameId ?? account.avatarFrameId}
+                  cultivationXp={
+                    identity?.cultivationXp ?? account.cultivationXp
+                  }
+                />
+              </button>
+            </div>
           </div>
         </header>
         {section === "dashboard" && (

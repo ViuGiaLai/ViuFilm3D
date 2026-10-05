@@ -258,8 +258,12 @@ export default function DashboardApp() {
       if (current === path) return;
       window.history.pushState(null, "", path);
     }
+    const wasAdmin = currentPath.startsWith("/admin");
+    const isAdmin = path.startsWith("/admin");
     setRoutePath(path);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!wasAdmin || !isAdmin) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
   const toggleFavorite = (id: number) => {
     const wasFavorite = favorites.includes(id);
@@ -476,6 +480,8 @@ export default function DashboardApp() {
         go={go}
         settings={siteSettings}
         setSettings={setSiteSettings}
+        theme={theme}
+        toggleTheme={toggleTheme}
       />
     ) : (
       <LoginPage
