@@ -638,7 +638,7 @@ export function ProfileCoverArt({ theme }: ProfileCoverArtProps) {
         </g>
 
         {/* Traditional Xianxia Corner Filigree Flourish (Top Right) */}
-        <g transform="translate(1160, 20) scale(0.65)" opacity="0.4" stroke="currentColor" fill="none" strokeWidth="1.5">
+        <g className="profile-cover-corner-flourish" transform="translate(1160, 20) scale(0.65)" opacity="0.4" stroke="currentColor" fill="none" strokeWidth="1.5">
           <path d="M-60 0 C-40 0, -20 -5, 0 -20 C -5 -40, 0 -60, 0 -60" />
           <path d="M-45 0 C-30 0, -15 -3, 0 -15 C -3 -30, 0 -45, 0 -45" />
           <circle cx="-12" cy="-12" r="3" fill="currentColor" />
@@ -647,7 +647,9 @@ export function ProfileCoverArt({ theme }: ProfileCoverArtProps) {
         </g>
 
         {/* Themed Specific Motif Layer */}
-        {renderMotif()}
+        <g className="profile-cover-motif-group">
+          {renderMotif()}
+        </g>
       </svg>
 
       {/* Dynamic Thematic Pill Badge (Top Left) */}

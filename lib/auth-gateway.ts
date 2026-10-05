@@ -1,8 +1,44 @@
 import { requestApi } from "@/lib/api-client";
 import { apiMode } from "@/lib/config";
 import type { Account } from "@/lib/app-types";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export const authGateway = {
+  async loginWithGoogle(): Promise<{ url?: string; error?: string } | null> {
+    if (apiMode === "mock") return null;
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      return { error: "Không tìm thấy cấu hình kết nối Supabase." };
+    }
+
+    const redirectUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback`
+        : "";
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (data?.url) {
+      window.location.href = data.url;
+    }
+
+    return null;
+  },
+
   async register(name: string, email: string, password: string) {
     return requestApi<{ confirmationRequired: boolean; userAlreadyExists?: boolean }>("/auth/register", {
       method: "POST",

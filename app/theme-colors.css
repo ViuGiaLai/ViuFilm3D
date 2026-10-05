@@ -717,29 +717,4 @@ html[data-mode="light"] .public-profile-comment strong {
   -webkit-text-fill-color: var(--text);
   box-shadow: 0 0 0 1000px var(--input-bg) inset;
 }
-@media (max-width: 700px) {
-  .public-profile-summary {
-    gap: 24px;
-    padding: 28px 26px;
-    flex-wrap: wrap;
-  }
-  .public-profile-summary > .user-avatar {
-    margin: -42px 12px 8px 6px;
-    width: 82px;
-    height: 82px;
-  }
-  .public-profile-summary > div:nth-child(2) {
-    flex: 1;
-  }
-  .public-profile-actions {
-    width: 100%;
-    margin: 12px 0 0;
-  }
-  .public-profile-cover > b {
-    font-size: 18px;
-    right: 22px;
-  }
-  .public-profile-cover > span {
-    left: 24px;
-  }
-}
+
