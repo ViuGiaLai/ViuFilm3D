@@ -4662,13 +4662,13 @@ html[data-mode="light"] .demo-tip {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 230px 1fr;
-  background: #090c13;
+  background: #02120e;
 }
 .admin-layout > aside {
   position: sticky;
   top: 0;
   height: 100vh;
-  background: #0e131d;
+  background: #031410;
   border-right: 1px solid var(--line);
   padding: 25px 15px;
   display: flex;
@@ -7126,19 +7126,20 @@ html[data-mode="light"] .ha-search {
 }
 
 .admin-layout {
-  --admin-card: #111722;
-  --admin-card-soft: #151c28;
-  --admin-border: rgba(255, 255, 255, 0.08);
+  --admin-card: #06201a;
+  --admin-card-soft: #0a2d25;
+  --admin-border: rgba(16, 185, 129, 0.16);
   grid-template-columns: 248px 1fr;
   background:
-    radial-gradient(circle at 80% 0%, rgba(230, 83, 58, 0.07), transparent 28%),
-    #080b11;
+    radial-gradient(circle at 80% 0%, rgba(16, 185, 129, 0.12), transparent 35%),
+    radial-gradient(circle at 10% 30%, rgba(5, 150, 105, 0.08), transparent 45%),
+    #02120e;
 }
 
 .admin-layout > aside {
   width: 248px;
   padding: 24px 16px;
-  background: rgba(13, 18, 27, 0.98);
+  background: rgba(3, 20, 16, 0.98);
 }
 
 .admin-layout > main {
@@ -7662,7 +7663,7 @@ html[data-mode="light"] .ha-search {
   padding: 9px 12px;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
-  background: #0d121b;
+  background: #041914;
   color: #cbd2de;
 }
 
@@ -7717,7 +7718,7 @@ html[data-mode="light"] .ha-search {
   min-width: 130px;
   padding: 9px 28px 9px 10px;
   color: #cbd2de;
-  background: #0d121b;
+  background: #041914;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
   font-size: 10px;
@@ -7730,7 +7731,7 @@ html[data-mode="light"] .ha-search {
   min-height: 46px;
   padding: 8px 17px;
   color: var(--muted);
-  background: #0d121b;
+  background: #041914;
   font-size: 10px;
 }
 
@@ -8136,7 +8137,7 @@ html[data-mode="light"] .ha-search {
   margin-top: 7px;
   padding: 11px;
   color: #eef1f5;
-  background: #0b1018;
+  background: #031510;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
 }

@@ -202,19 +202,21 @@ html[data-mode="light"] .filter-reset-btn {
   color: var(--danger-text);
 }
 
-/* The administration console has no mode switch; keep its dark surfaces and
-   inherited tokens coherent even after visiting a light public page. */
+/* The administration console dark surfaces and tokens in emerald cyber green */
 .admin-layout {
-  --bg: #080b11;
-  --panel: #111722;
-  --panel2: #151c28;
-  --text: #f4f6fb;
-  --muted: #a1adbf;
-  --line: #303b4d;
-  --accent: #f5a524;
+  --bg: #031310;
+  --panel: #06201a;
+  --panel2: #0a2d25;
+  --text: #f0fdf4;
+  --muted: #86a79c;
+  --line: #134236;
+  --accent: #10b981;
   --red: #ff9aa7;
-  --success-text: #79dfb5;
+  --success-text: #34d399;
   --danger-text: #ff9aa7;
+  --admin-card: #06201a;
+  --admin-card-soft: #0a2d25;
+  --admin-border: rgba(16, 185, 129, 0.16);
   color: var(--text);
   color-scheme: dark;
 }
