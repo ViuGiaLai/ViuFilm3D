@@ -37,6 +37,23 @@ export default function AuthCallbackPage() {
 
         let activeSession = session;
 
+        // If no active session yet, check for code parameter in URL and exchange directly
+        if (!activeSession && typeof window !== "undefined") {
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get("code");
+          if (code) {
+            try {
+              const { data: exchangeData, error: exchangeError } =
+                await supabase.auth.exchangeCodeForSession(code);
+              if (!exchangeError && exchangeData?.session) {
+                activeSession = exchangeData.session;
+              }
+            } catch {
+              // Fallback to onAuthStateChange below
+            }
+          }
+        }
+
         if (!activeSession) {
           // Listen for auth state change from URL hash or PKCE exchange
           const sessionPromise = new Promise<typeof session>((resolve) => {

@@ -70,6 +70,19 @@ export default function DashboardApp() {
   });
 
   useEffect(() => {
+    // If OAuth redirected back to root or another page with ?code= or ?error=, forward to /auth/callback
+    if (typeof window !== "undefined") {
+      const search = window.location.search;
+      if (search && (search.includes("code=") || search.includes("error="))) {
+        if (!window.location.pathname.startsWith("/auth/callback")) {
+          window.location.replace(`/auth/callback${search}`);
+          return;
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     setRoutePath(pathname);
   }, [pathname]);
 
